@@ -23,13 +23,31 @@ def filterMods(modList):
 def modDisable(modList):
     staticMod, dynamicMod = filterMods(modList)
     if len(staticMod):
-        print('Static Fix')
-        print(staticMod)
-        print()
+        print('Static Modules to Disable')
+        pathToDis = input('Enter the path to your Apache source folder: ')
+        prefix = input('Enter location of server installation: ')
+        configStr = './configure'
+        for mod in staticMod:
+            modName = mod.split('_module')[0].replace('_', '-')
+            configStr += ' --disable-{}'.format(modName)
+        
+        os.system('cd {}'.format(pathToDis))
+        os.system('{} --prefix={}'.format(configStr, prefix))
+        os.system('make')
+        os.system('make install')
+        os.system('{}/bin/apachectl -k graceful-stop'.format(prefix))
+        os.system('{}/bin/apachectl -k start'.format(prefix))
+
     if len(dynamicMod):
-        print('Dynamic Fix')
+        print('Shared Modules to Disable')
         print(dynamicMod)
-        print()
+        disCom = 'a2dismod -f'
+        for mod in dynamicMod:
+            modName = mod.split('_module')[0]
+            disCom += ' {}'.format(modName)
+
+        os.system(disCom)
+        os.system('service apache2 reload')
 
 
 # 2. Minimize Apache Modules (Audit)
@@ -105,6 +123,7 @@ def section2Audit():
 # 2. Minimize Apache Modules (Analyze) - Not Done
 def section2Analyze(modCheck, modules):
     print('MODULES ANALYSIS')
+    modDisList = []
     if modCheck[0]:
         print('Only Enable the Necessary Files')
         staticMod, dynamicMod = filterMods(modules[0])
@@ -115,32 +134,34 @@ def section2Analyze(modCheck, modules):
 
     if not modCheck[2]:
         print('WebDAV Modules Enabled!!')
-        modDisable(modules[2])
+        modDisList.extend(modules[2])
 
     if not modCheck[3]:
         print('Status Module Enabled!!')
-        modDisable(modules[3])
+        modDisList.extend(modules[3])
 
     if not modCheck[4]:
         print('AutoIndex Module Enabled!!')
-        modDisable(modules[4])
+        modDisList.extend(modules[4])
 
     if not modCheck[5]:
         print('Proxy Modules Enabled!!')
-        modDisable(modules[5])
+        modDisList.extend(modules[5])
 
     if not modCheck[6]:
         print('UserDir Module Enabled!!')
-        modDisable(modules[6])
+        modDisList.extend(modules[6])
 
     if not modCheck[7]:
         print('Info Module Enabled!!')
-        modDisable(modules[7])
+        modDisList.extend(modules[7])
 
     if not modCheck[8]:
         print('Outdated Auth Modules Enabled!!')
-        modDisable(modules[8])
+        modDisList.extend(modules[8])
 
+    if len(modDisList):
+        modDisable(modDisList)
 
 # 3. Principles, Permissions and Ownerships (Audit) - Not Done
 def section3Audit():
@@ -195,7 +216,7 @@ def rootDirectory(dirField):
             requireEndIndex = line.index('Require') + 8
             if line[requireEndIndex:] != 'all denied':
                 dirSplit[index] = line[:requireEndIndex] + 'all denied'
-                change = True
+                changed = True
         elif 'Deny' in line:
             toRemove.append(index)
             changed = True
@@ -265,7 +286,6 @@ def section4Audit():
 
         newContent = []
         if len(confChanges):
-            print(confChanges)
             confName = confFile.split(r'/')[-1]
             print(confName)
             for change in reversed(confChanges):
