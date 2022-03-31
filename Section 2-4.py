@@ -230,21 +230,21 @@ def section3Audit():
         print('Apache user not locked')
 
     # Ensure Apache Directories and Files are Owned by Root
-    res = os.popen('find {} \! -user root -ls'.format(webSerDir)).read()
+    res = os.popen('find {} \! -user root'.format(webSerDir)).read()
 
     # GIVE FIX
     if res:
         print('Found apache directories/files not owned by root')
 
     # Ensure Group is Set Correctly on Apache Directories and Files
-    res = os.popen('find {} \! -group root -ls'.format(webSerDir)).read()
+    res = os.popen('find {} \! -group root'.format(webSerDir)).read()
 
     # GIVE FIX
     if res:
         print('Found apache directories/files not in root group')
 
     # Ensure Other Write Access on Apache Directories and Files is Restricted
-    res = os.popen('find -L {} \! -type l -perm /o=w -ls'.format(webSerDir)).read()
+    res = os.popen('find -L {} \! -type l -perm /o=w'.format(webSerDir)).read()
 
     # GIVE FIX
     if res:
@@ -257,19 +257,38 @@ def section3Audit():
     if res:
         print('CoreDumpDirectory directive found in conf file')
 
-    res = os.popen('find {} -prune \! -user root -ls'.format(varDict['APACHE_LOG_DIR'])).read()
+    res = os.popen('find {} -prune \! -user root'.format(varDict['APACHE_LOG_DIR'])).read()
     
     # GIVE FIX
     if res:
-        print('Apache log folder not owned by root')
+        print('Apache log directory not owned by root')
 
-    res = os.popen('find {} -prune -perm o=rwx -ls'.format(varDict['APACHE_LOG_DIR'])).read()
+    res = os.popen('find {} -prune -perm /o=rwx'.format(varDict['APACHE_LOG_DIR'])).read()
 
     # GIVE FIX
     if res:
         print('Apache log directory accessible by others')
 
     # Ensure Lock File is Secured
+    res = os.popen('grep -i DocumentRoot {}/sites-available/000-default.conf'.format(webSerDir)).read().split()[-1]
+    print(res)
+    lockDir = varDict['APACHE_LOCK_DIR']
+
+    # GVE FIX
+    if res in lockDir:
+        print('Lock directory in document root')
+
+    res = os.popen('find {} -prune \! -user root'.format(varDict['APACHE_LOCK_DIR'])).read()
+
+    # GIVE FIX
+    if res:
+        print('Apache lock directory not owned by root')
+
+    res = os.popen('find {} -prune -perm /o+w'.format(varDict['APACHE_LOCK_DIR'])).read()
+    
+    # GIVE FIX
+    if res:
+        print('Apache lock directory writable by others')
 
     # Ensure PID File is Secured
 
