@@ -120,7 +120,7 @@ def section2Audit():
     return modCheck, modules
 
 
-# 2. Minimize Apache Modules (Analyze) - Not Done
+# 2. Minimize Apache Modules (Analyze) - Left 2.1
 def section2Analyze(modCheck, modules):
     print('MODULES ANALYSIS')
     modDisList = []
@@ -163,21 +163,111 @@ def section2Analyze(modCheck, modules):
     if len(modDisList):
         modDisable(modDisList)
 
+
 # 3. Principles, Permissions and Ownerships (Audit) - Not Done
 def section3Audit():
+    # Get Apache Environment Variables
+    envVarPath = '{}/envvars'.format(webSerDir)
+    while not os.path.isfile(envVarPath):
+        envVarPath = input('Enter path to environment variable file: ')
+    
+    envVars = [i.split('export ')[1].split('=') for i in os.popen('cat {} | grep export'.format(envVarPath)).read().split('\n') if i and i[0] != '#']
+
+    varDict = {}
+    for var in envVars:
+        if len(var) == 2:
+            varDict[var[0]] = var[1]
+
+    # Get Apache Configuration File
+    confFilePath = '{}/apache2.conf'.format(webSerDir)
+    while not os.path.isfile(confFilePath):
+        confFilePath = input('Enter path to apache configuration file: ')
+    
     # Ensure Server is Ran as Non-Root
+    res = os.popen('grep -i ^User {}'.format(confFilePath)).read()
+    userChk = res.split('User ')
+    # GIVE FIX
+    if userChk[0] == '#':
+        print('User directive commented')
+    else:
+        user = userChk[1]
+
+    res = os.popen('grep -i ^Group {}'.format(confFilePath)).read()
+    # GIVE FIX
+    if res[0] == '#':
+        print('Group directive commented')
+
+    if user.startswith('${'):
+        user = varDict[user[2:-2]]
+
+    res = os.popen('grep ^UID_MIN /etc/login.defs').read()
+    uidMin = int(res.split()[1])
+
+    res = os.popen('id {}'.format(user)).read()
+    ids = res.split()
+    uid = int(ids[0][4:].split('(')[0])
+
+    # GIVE FIX
+    if uid >= uidMin:
+        print('Apache running as non-system account')
+
+    # GIVE FIX
+    if 'sudo' in ids[2]:
+        print('Apache user has sudo privilege')
 
     # Ensure Apache User Account has Invalid Shell
+    res = os.popen('grep {} /etc/passwd | grep /sbin/nologin'.format(user)).read()
+
+    # GIVE FIX
+    if not res:
+        print('Apache user should not have a valid login shell')
 
     # Ensure Apache User is Locked
+    res = os.popen('passwd -S {}'.format(user)).read()
+    
+    # GIVE FIX
+    if res.split()[1] != 'L':
+        print('Apache user not locked')
 
     # Ensure Apache Directories and Files are Owned by Root
+    res = os.popen('find {} \! -user root -ls'.format(webSerDir)).read()
+
+    # GIVE FIX
+    if res:
+        print('Found apache directories/files not owned by root')
 
     # Ensure Group is Set Correctly on Apache Directories and Files
+    res = os.popen('find {} \! -group root -ls'.format(webSerDir)).read()
+
+    # GIVE FIX
+    if res:
+        print('Found apache directories/files not in root group')
 
     # Ensure Other Write Access on Apache Directories and Files is Restricted
+    res = os.popen('find -L {} \! -type l -perm /o=w -ls'.format(webSerDir)).read()
+
+    # GIVE FIX
+    if res:
+        print('Found apache directories/files with other write access')
 
     # Ensure Core Dump Directory is Secured
+    res = os.popen('cat {} | grep CoreDumpDirectory'.format(confFilePath)).read()
+    
+    # GIVE FIX
+    if res:
+        print('CoreDumpDirectory directive found in conf file')
+
+    res = os.popen('find {} -prune \! -user root -ls'.format(varDict['APACHE_LOG_DIR'])).read()
+    
+    # GIVE FIX
+    if res:
+        print('Apache log folder not owned by root')
+
+    res = os.popen('find {} -prune -perm o=rwx -ls'.format(varDict['APACHE_LOG_DIR'])).read()
+
+    # GIVE FIX
+    if res:
+        print('Apache log directory accessible by others')
 
     # Ensure Lock File is Secured
 
@@ -188,8 +278,6 @@ def section3Audit():
     # Ensure Group Write Access for Document Root Directories and Files is Proeprly Restricted
 
     # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
-    
-    pass
 
 
 # Checks for the appropriate access control for the OS root directory
@@ -342,7 +430,9 @@ if __name__ == '__main__':
     else:
         webSerDir = input('Enter Configuration Folder Location: ')
 
-    modCheck, modules = section2Audit()
-    section2Analyze(modCheck, modules)
+    # modCheck, modules = section2Audit()
+    # section2Analyze(modCheck, modules)
 
-    section4Audit()
+    section3Audit()
+
+    # section4Audit()
