@@ -270,12 +270,11 @@ def section3Audit():
         print('Apache log directory accessible by others')
 
     # Ensure Lock File is Secured
-    res = os.popen('grep -i DocumentRoot {}/sites-available/000-default.conf'.format(webSerDir)).read().split()[-1]
-    print(res)
+    docRoot = os.popen('grep -i DocumentRoot {}/sites-available/000-default.conf'.format(webSerDir)).read().split()[-1]
     lockDir = varDict['APACHE_LOCK_DIR']
 
     # GVE FIX
-    if res in lockDir:
+    if docRoot in lockDir:
         print('Lock directory in document root')
 
     res = os.popen('find {} -prune \! -user root'.format(varDict['APACHE_LOCK_DIR'])).read()
@@ -291,12 +290,96 @@ def section3Audit():
         print('Apache lock directory writable by others')
 
     # Ensure PID File is Secured
+    res = os.popen('grep "PidFile " {}'.format(confFilePath)).read()
+    pidFilePath = res.split(' ', 1)[1]
+    
+    if pidFilePath.startswith('${'):
+        pidFilePath = varDict[pidFilePath[2:-2]]
+
+    pidDir = pidFilePath.rsplit('/', 1)[0]
+
+    # GIVE FIX
+    if docRoot in pidDir:
+        print('PID directory in document root')
+
+    res = os.popen('find {} -prune \! -user root'.format(pidDir)).read()
+
+    # GIVE FIX
+    if res:
+        print('Apache PID directory not owned by root')
+    
+    res = os.popen('find {} -prune -perm /o+w'.format(pidDir)).read()
+    
+    # GIVE FIX
+    if res:
+        print('Apache PID directory writable by others')
 
     # Ensure ScoreBoard File is Secured
+    confPaths = []
+    if os.path.isfile(r'{}/apache2.conf'.format(webSerDir)):
+        confPaths.append(r'{}/apache2.conf'.format(webSerDir))
+
+    print('Current Conf Files to be Anaylzed:')
+    print(confPaths[0])
+
+    chk = input('Are there any other conf files with the ScoreBoard directive? (Y/N) ')
+    if chk.lower() == 'y':
+        newConf = input('Enter conf file path (Enter "end" when done): ')
+        while newConf.lower() != 'end':
+            if os.path.isfile(newConf):
+                confPaths.append(newConf)
+            else:
+                print('File not found')
+
+            newConf = input('Enter conf file path (Enter "end" when done): ')
+
+    for conf in confPaths:
+        res = os.popen('grep ScoreBoardFile {}'.format(conf)).read().split('\n')[:-1]
+
+        if res:
+            for score in res:
+                scoreBoardDir = score.split(' ', 1).rsplit('/', 1)
+
+                if docRoot in scoreBoardDir:
+                    print('ScoreBoardFile directory in document root')
+
+                res = os.popen('find {} -prune \! -user root'.format(scoreBoardDir)).read()
+
+                # GIVE FIX
+                if res:
+                    print('ScoreBoardFile directory not owned by root')
+                
+                res = os.popen('find {} -prune -perm /o+w'.format(scoreBoardDir)).read()
+                
+                # GIVE FIX
+                if res:
+                    print('ScoreBoardFile directory writable by others')
+
+                res = os.popen('df -PT {} | tail -n +2 | awk "{{print $2}}" '.format(scoreBoardDir)).read().split('\n')[0]
+
+                # GIVE FIX
+                if res == 'nfs':
+                    print('ScoreBoardFile directory is on an NFS mounted filesystem')
 
     # Ensure Group Write Access for Document Root Directories and Files is Proeprly Restricted
+    res = os.popen('find -L {} \! -type l -perm /g=w -ls'.format(webSerDir)).read()
+    
+    # GIVE FIX
+    if res:
+        print('Apache directories/files found with group write access')
 
     # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
+    res = os.popen('find {} -prune \! -user {}'.format(docRoot, varDict['APACHE_RUN_USER'])).read()
+
+    # GIVE FIX
+    if res:
+        print('Document Root not owned by Run User')
+    
+    res = os.popen('find -L {} -perm /g=w').read()
+    
+    # GIVE FIX
+    if res:
+        print('DocumentRoot directories/files found with group write access')
 
 
 # Checks for the appropriate access control for the OS root directory
