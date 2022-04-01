@@ -39,12 +39,12 @@ def modDisable(modList):
             modName = mod.split('_module')[0].replace('_', '-')
             configStr += ' --disable-{}'.format(modName)
         
-        os.system('cd {}'.format(pathToDis))
-        os.system('{} --prefix={}'.format(configStr, prefix))
-        os.system('make')
-        os.system('make install')
-        os.system('{}/bin/apachectl -k graceful-stop'.format(prefix))
-        os.system('{}/bin/apachectl -k start'.format(prefix))
+        commandRun('cd {}'.format(pathToDis))
+        commandRun('{} --prefix={}'.format(configStr, prefix))
+        commandRun('make')
+        commandRun('make install')
+        commandRun('{}/bin/apachectl -k graceful-stop'.format(prefix))
+        commandRun('{}/bin/apachectl -k start'.format(prefix))
 
     if len(dynamicMod):
         print('Shared Modules to Disable')
@@ -54,8 +54,8 @@ def modDisable(modList):
             modName = mod.split('_module')[0]
             disCom += ' {}'.format(modName)
 
-        os.system(disCom)
-        os.system('service apache2 reload')
+        commandRun(disCom)
+        commandRun('service apache2 reload')
 
 
 # 2. Minimize Apache Modules (Audit)
@@ -130,12 +130,10 @@ def section2Audit():
 
 # 2. Minimize Apache Modules (Analyze) - Left 2.1
 def section2Analyze(modCheck, modules):
-    print('MODULES ANALYSIS')
     modDisList = []
     if modCheck[0]:
         print('Only Enable the Necessary Files')
-        staticMod, dynamicMod = filterMods(modules[0])
-        print()
+        print(modules[0])
 
     if not modCheck[1]:
         print('Logging Module Disabled!!')
@@ -193,27 +191,22 @@ def section3Audit():
 
     # [User Exist, Group Exist]
     chkList = [False, False]
-    userComment = groupComment = []
 
-    # WILL REQUIRE CONFIG FILE CHANGES
-    # GIVE FIX
-    res = os.popen('grep -i User {}'.format(confFilePath)).read().split('\n')
-    for line in res:
-        if line.startswith('User'):
-            user = line.split('User ')[1]
-            chkList[0] = True
-        elif not chkList[0] and line.startswith('#'):
-            userComment.append(line)
+    # ADD APACHE USER (MANUAL FIX)
+    res = os.popen('grep -i ^User {}'.format(confFilePath)).read()
+    if res:
+        user = res.split('User ')[1].replace('\n', '')
+        chkList[0] = True
+    else:
+        print('No Apache User found')
     
-    # WILL REQUIRE CONFIG FILE CHANGES 
-    # GIVE FIX
-    res = os.popen('grep -i Group {}'.format(confFilePath)).read()
-    for line in res:
-        if line.startswith('Group '):
-            group = line.split('Group ')[1]
-            chkList[1] = True
-        elif not chkList[1] and line.startswith('#'):
-            groupComment.append(line)
+    # ADD APACHE GROUP (MANUAL FIX)
+    res = os.popen('grep -i ^Group {}'.format(confFilePath)).read()
+    if res:
+        group = res.split('Group ')[1].replace('\n', '')
+        chkList[1] = True
+    else:
+        print('No Apache group found')
 
     if chkList[0]:
         if user.startswith('${'):
@@ -275,11 +268,14 @@ def section3Audit():
 
     # Ensure Core Dump Directory is Secured
     docRoot = os.popen('grep -i DocumentRoot {}/sites-available/000-default.conf'.format(webSerDir)).read().split()[-1]
-    res = os.popen('grep CoreDumpDirectory {}'.format(confFilePath)).read()
+    res = os.popen('grep -n CoreDumpDirectory {}'.format(confFilePath)).read().split('\n')[:-1]
     
-    # WILL REQUIRE CONFIG FILE CHANGES
-    # GIVE FIX
+    # Get the line number of the CoreDumpDirectory directive
+    # Remove line using sed
     if res:
+        for line in res:
+            lineNo = line.split(':', 1)[0]
+            commandRun("sed -i '{}d' {}".format(lineNo, confFilePath))
         print('CoreDumpDirectory directive found in conf file')
 
     logDir = varDict['APACHE_LOG_DIR']
@@ -290,7 +286,7 @@ def section3Audit():
         commandRun('chown root {}'.format(logDir))
 
     if chkList[1]:
-        res = os.popen('find {} -prune \! -group {}'.format(group))
+        res = os.popen('find {} -prune \! -group {}'.format(logDir, group))
         if res:
             print('Apache log directory not owned by {} group'.format(group))
             commandRun('chgrp {} {}'.format(group, logDir))
@@ -333,7 +329,6 @@ def section3Audit():
     if res == 'nfs':
         print('ScoreBoardFile directory is on an NFS mounted filesystem')
         
-
     # Ensure PID File is Secured
     res = os.popen('grep "PidFile " {}'.format(confFilePath)).read()
     pidFilePath = res.split(' ', 1)[1]
@@ -410,7 +405,7 @@ def section3Audit():
     
 
    
-
+    # KIV
     # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
     res = os.popen('find {} -prune \! -user {}'.format(docRoot, varDict['APACHE_RUN_USER'])).read()
 
@@ -419,6 +414,36 @@ def section3Audit():
         print('Document Root not owned by Run User')
     
     
+def handleDirective(pattern, content, confUpdate, isDir=False):
+    res = re.finditer(pattern, content)
+
+    confChanges = []
+
+    for dir in res:
+        dirField = dir.group()
+        dirIndexes = dir.span()
+
+        if dirField.split('\n')[1][0] == '#':
+            continue
+
+        # Root Directory
+        elif dirField.split('\n')[0] in ['<Directory>', '<Directory />']:
+            updatedField, changed = rootDirectory(dirField)
+            if changed:
+                confChanges.append((dirIndexes, updatedField))
+
+        else:
+            updatedField, changed = webContent(dirField, isDir)
+            if changed:
+                print(dirField)
+                print(updatedField)
+                confChanges.append((dirIndexes, updatedField))
+
+    if len(confChanges):
+        content = updateConf(confChanges, content)
+        confUpdate = True
+
+    return content, confUpdate
 
 
 # Checks for the appropriate access control for the OS root directory
@@ -451,15 +476,73 @@ def rootDirectory(dirField):
             changed = True
         elif 'Allow' in line:
             toRemove.append(index)
+            changed = True
 
     if not requireFound:
-        dirSplit.insert(-1, '/tRequire all denied')
+        dirSplit.insert(-1, '\tRequire all denied')
         changed = True
 
     if not overrideFound:
-        dirSplit.insert(-1, '/tAllowOverride None')
+        dirSplit.insert(-1, '\tAllowOverride None')
         changed = True
 
+    toRemove.reverse()
+    for index in toRemove:
+        dirSplit.pop(index)
+
+    updatedField = '\n'.join(dirSplit)
+    return updatedField, changed
+    
+
+# Checks for the appropriate access control for directives
+def webContent(dirField, isDir=False):
+    dirSplit = dirField.split('\n')
+    print('Current checking directives for {}'.format(dirSplit[0]))
+    toRemove = []
+    changed = False
+    requireFound = False
+    overrideFound = False
+
+    for index in range(len(dirSplit)):
+        line = dirSplit[index]
+
+        if 'AllowOverride' in line:
+            if 'AllowOverride None' in line:
+                overrideFound = True
+            else:
+                toRemove.append(index)
+                changed = True
+        elif 'Require' in line:
+            print('Require statement found: {}'.format(line.replace('\t', '')))
+            chk = input('Is the access given appropriate? (Y/N) ')
+
+            # Get New Require Value
+            if chk.lower() == 'n':
+                newRequire = input('Enter new require directive value: ')
+                if newRequire.startswith('Require '):
+                    newRequire = newRequire[8:]
+                requireEndIndex = line.index('Require') + 8
+                dirSplit[index] = line[:requireEndIndex] + newRequire
+                changed = True
+            
+            requireFound = True
+        elif 'Deny' in line:
+            toRemove.append(index)
+            changed = True
+        elif 'Allow' in line:
+            toRemove.append(index)
+            changed = True
+        
+
+    if not requireFound:
+        dirSplit.insert(-1, '\tRequire all granted')
+        changed = True
+
+    if not overrideFound and isDir:
+        dirSplit.insert(-1, '\tAllowOverride None')
+        changed = True
+
+    toRemove.reverse()
     for index in toRemove:
         dirSplit.pop(index)
 
@@ -467,9 +550,39 @@ def rootDirectory(dirField):
     return updatedField, changed
 
 
-def webContent(content):
-    changed = False
-    return changed
+# Updates the configuration file content
+def updateConf(confChanges, confContent):
+    newContent = []
+    for change in reversed(confChanges):
+        # Update Main Content String
+        changeStr = confContent[change[0][0]:]
+        confContent = confContent[:change[0][0]]
+
+        # Update changeStr to new field/directive content
+        newIndex = change[0][1] - change[0][0]
+        updateStr = change[1] + changeStr[newIndex:]
+        newContent.insert(0, updateStr)
+
+    newContent.insert(0, confContent)
+
+    return ''.join(newContent)
+
+
+# Removes any instances of the AllowOverrideList directive from the configuration content
+def rmAllowOverrideList(confContent):
+    contentSplit = confContent.split('\n')
+    toRemove = []
+    for index in range(len(contentSplit)):
+        line = contentSplit[index]
+        if line:
+            if line.split()[0] == 'AllowOverrideList':
+                toRemove.append(index)
+
+    toRemove.reverse()
+    for index in toRemove:
+        contentSplit.pop(index)
+
+    return '\n'.join(contentSplit)
 
 
 # 4. Apache Access Control (Audit) - Half Way
@@ -482,7 +595,7 @@ def section4Audit():
     print('Current Conf Files to be Anaylzed:')
     print(confPaths[0])
 
-    chk = input('Are there any other conf files with Directory/Location elements? (Y/N) ')
+    chk = input('Are there any other conf files with Web Content elements? (Y/N) ')
     if chk.lower() == 'y':
         newConf = input('Enter conf file path (Enter "end" when done): ')
         while newConf.lower() != 'end':
@@ -498,74 +611,55 @@ def section4Audit():
         with open(confFile) as f:
             content = f.read()
         
-        pattern = r'(<Directory[.\s\S]+?<\/Directory>)'
-        res = re.finditer(pattern, content)
+        confUpdate = False
 
-        confChanges = []
+        # Directory directive
+        pattern = '(<Directory[.\s\S]+?<\/Directory>)'
+        content, confUpdate = handleDirective(pattern, content, confUpdate, True)
 
-        for dir in res:
-            dirField = dir.group()
-            dirIndexes = dir.span()
+        # DirectoryMatch directive
+        pattern = '(<DirectoryMatch[.\s\S]+?<\/DirectoryMatch>)'
+        content, confUpdate = handleDirective(pattern, content, confUpdate)
 
-            # Root Directory
-            if dirField.split('\n')[0] in ['<Directory>', '<Directory />']:
-                updatedField, changed = rootDirectory(dirField)
-                if changed:
-                    confChanges.append((dirIndexes, updatedField))
+        # Files directive
+        pattern = '(<Files[.\s\S]+?<\/Files>)'
+        content, confUpdate = handleDirective(pattern, content, confUpdate)
 
-        newContent = []
-        if len(confChanges):
+        # FilesMatch directive
+        pattern = '(<FilesMatch[.\s\S]+?<\/FilesMatch>)'
+        content, confUpdate = handleDirective(pattern, content, confUpdate)
+
+        # Location directive
+        pattern = '(<Location[.\s\S]+?<\/Location>)'
+        content, confUpdate = handleDirective(pattern, content, confUpdate)
+
+        # LocationMatch directive
+        pattern = '(<LocationMatch[.\s\S]+?<\/LocationMatch>)'
+        content, confUpdate = handleDirective(pattern, content, confUpdate)
+
+        # Proxy
+        pattern = '(<Proxy[.\s\S]+?<\/Proxy>)'
+        content, confUpdate = handleDirective(pattern, content, confUpdate)
+
+        # ProxyMatch
+        pattern = '(<ProxyMatch[.\s\S]+?<\/ProxyMatch>)'
+        content, confUpdate = handleDirective(pattern, content, confUpdate)
+
+        # Remove all AllowOverrideList directives
+        content = rmAllowOverrideList(content)
+        
+        if confUpdate:
             confName = confFile.split(r'/')[-1]
-            print(confName)
-            for change in reversed(confChanges):
-                # Update Main Content String
-                changeStr = content[change[0][0]:]
-                content = content[:change[0][0]]
 
-                # Update changeStr to new field/directive content
-                newIndex = change[0][1] - change[0][0]
-                updateStr = change[1] + changeStr[newIndex:]
-                newContent.insert(0, updateStr)
-        
-            newContent.insert(0, content)
+            if runFix:
+                with open('fixed-{}'.format(confName), 'w') as f:
+                    f.write(content)
 
-            with open('fixed-{}'.format(confName), 'w') as f:
-                f.write(''.join(newContent))
-        
-        # if res:
-        #     for dir in res:
-        #         print(content.index(dir))
-        #         if dir.split('\n')[0] in ['<Directory>', '<Directory />']:
-        #             rootDirectory(dir)
-        #         else:
-        #             webContent(dir)
-
-
-        # NEED TO LOOK INTO WHICH DIRECTIVES TO LOOK OUT FOR
-        # Ensure Appropriate Access to Web Content is Allowed
-        # Ensure OverRide is Disabled for All Directories
-
-
-############################
-# Section 3 Analysis Start #
-############################
-############################
-#  Section 3 Analysis End  #
-############################
-
-
-############################
-# Section 4 Analysis Start #
-############################
-############################
-#  Section 4 Analysis End  #
-############################
 
 if __name__ == '__main__':
     runFix = False
 
     # Goal: Determine web server configuration dir
-    # To be changed to web server type chosen
     webSerDir = r'/etc/apache2'
 
     if (os.path.isdir(webSerDir)):
@@ -573,9 +667,9 @@ if __name__ == '__main__':
     else:
         webSerDir = input('Enter Configuration Folder Location: ')
 
-    # modCheck, modules = section2Audit()
-    # section2Analyze(modCheck, modules)
+    modCheck, modules = section2Audit()
+    section2Analyze(modCheck, modules)
 
     section3Audit()
 
-    # section4Audit()
+    section4Audit()
