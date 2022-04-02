@@ -449,7 +449,12 @@ def section3Audit():
 
     print("\n### End of Section 3 ###\n")
 
-    
+
+'''
+Section 4: Apache Access Control
+Looks for the respective directives based on the pattern given
+Runs the appropriate function to decide if any changes were made
+'''
 def handleDirective(pattern, content, confUpdate, isDir=False):
     res = re.finditer(pattern, content)
 
@@ -1164,6 +1169,7 @@ if __name__ == '__main__':
 
     section12()
 
+    # Reload apache2 server if remedy were automatically ran
     if remedy:
         commandRun('service apache2 reload')
     else:
