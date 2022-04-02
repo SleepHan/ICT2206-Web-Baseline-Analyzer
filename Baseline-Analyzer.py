@@ -630,6 +630,55 @@ def section4Audit():
                         f.write(content)
 
 
+# 10. Request Limits
+def section10():
+    global apacheConfContent
+    search_reg_exp = [r"^512$", r"^100$", r"^1024$", r"^102400$"]
+    expected_values = ["512", "100", "1024", "102400"]
+    directive_lines = ["LimitRequestLine 512", "LimitRequestFields 100", "LimitRequestFieldSize 1024",
+                       "LimitRequestBody 102400"]
+    directives = ["LimitRequestLine", "LimitRequestFields", "LimitRequestFieldSize", "LimitRequestBody"]
+    found = [False, False, False, False]
+    changed = [False, False, False, False]
+
+    with open(apacheConfFile + ".new", "w+") as output_file:
+        apacheConfContent = apacheConfContent.split('\n')
+
+        for original_line in apacheConfContent:
+            for i in range(0, 4):
+                # If directive is in current line
+                if directives[i] in original_line:
+                    limit_req_line = original_line.split()
+                    original_value = limit_req_line[1]
+
+                    # Don't change the original value if it's correct.
+                    if re.match(search_reg_exp[i], original_value):
+                        found[i] = True
+                        print(directives[i] + " already has a value of " + expected_values[i])
+
+                    # Change the original value if it's incorrect.
+                    else:
+                        changed[i] = True
+                        output_file.write(
+                            directive_lines[i] + " # Corrected value from " + original_value + " to " +
+                            expected_values[i] + "\n")  # Write the correct directive line.
+                        print("Changed line: " + original_line.rstrip() + " --> " +
+                                directive_lines[i])  # Print all changed lines.
+                        original_line = ""  # Remove original line
+
+            output_file.write(original_line + '\n')  # Restore the rest of the original config file.
+
+        output_file.write("\n### Start of Added Directives for Section 10  of CIS Benchmark ###\n\n")
+        for j, found_bool in enumerate(found):
+            if not found_bool and not changed[j]:
+                # If directive doesn't exist in config, write to last line of new config
+                output_file.write(directive_lines[j] + "\n")
+                print("Added line: " + directive_lines[j])  # Print all added lines.
+        output_file.write("\n### End of Added Directives for Section 10  of CIS Benchmark ###\n")
+        print(
+            "\nAll changes are saved to " + apacheConfFile + ".new. To reflect all changes, manually rename this file to apache2.conf.")
+
+
 if __name__ == '__main__':
     runFix = False
 
@@ -645,9 +694,15 @@ if __name__ == '__main__':
     with open(apacheConfFile) as f:
         apacheConfContent = f.read()
 
-    modCheck, modules = section2Audit()
-    section2Analyze(modCheck, modules)
+    res = os.popen('id -u').read().split('\n')[0]
+    if res != '0':
+        print('Run script with root permissions')
+    else:
+        modCheck, modules = section2Audit()
+        section2Analyze(modCheck, modules)
 
-    section3Audit()
+        section3Audit()
 
-    section4Audit()
+        section4Audit()
+
+        section10()
