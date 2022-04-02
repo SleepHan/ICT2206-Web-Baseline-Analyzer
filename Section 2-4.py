@@ -170,7 +170,7 @@ def section2Analyze(modCheck, modules):
         modDisable(modDisList)
 
 
-# 3. Principles, Permissions and Ownerships (Audit) - Not Done
+# 3. Principles, Permissions and Ownerships (Audit)
 def section3Audit():
     # Get Apache Environment Variables
     envVarPath = '{}/envvars'.format(webSerDir)
@@ -184,16 +184,11 @@ def section3Audit():
         if len(var) == 2:
             varDict[var[0]] = var[1]
 
-    # Get Apache Configuration File
-    confFilePath = '{}/apache2.conf'.format(webSerDir)
-    while not os.path.isfile(confFilePath):
-        confFilePath = input('Enter path to apache configuration file: ')
-
     # [User Exist, Group Exist]
     chkList = [False, False]
 
     # ADD APACHE USER (MANUAL FIX)
-    res = os.popen('grep -i ^User {}'.format(confFilePath)).read()
+    res = os.popen('grep -i ^User {}'.format(apacheConfFile)).read()
     if res:
         user = res.split('User ')[1].replace('\n', '')
         chkList[0] = True
@@ -201,7 +196,7 @@ def section3Audit():
         print('No Apache User found')
     
     # ADD APACHE GROUP (MANUAL FIX)
-    res = os.popen('grep -i ^Group {}'.format(confFilePath)).read()
+    res = os.popen('grep -i ^Group {}'.format(apacheConfFile)).read()
     if res:
         group = res.split('Group ')[1].replace('\n', '')
         chkList[1] = True
@@ -268,14 +263,16 @@ def section3Audit():
 
     # Ensure Core Dump Directory is Secured
     docRoot = os.popen('grep -i DocumentRoot {}/sites-available/000-default.conf'.format(webSerDir)).read().split()[-1]
-    res = os.popen('grep -n CoreDumpDirectory {}'.format(confFilePath)).read().split('\n')[:-1]
+    res = os.popen('grep -n CoreDumpDirectory {}'.format(apacheConfFile)).read().split('\n')[:-1]
     
     # Get the line number of the CoreDumpDirectory directive
-    # Remove line using sed
+    # Remove line from apache content
     if res:
+        global apacheConfContent
+
         for line in res:
             lineNo = line.split(':', 1)[0]
-            commandRun("sed -i '{}d' {}".format(lineNo, confFilePath))
+            apacheConfContent.pop(int(lineNo) - 1)
         print('CoreDumpDirectory directive found in conf file')
 
     logDir = varDict['APACHE_LOG_DIR']
@@ -286,6 +283,9 @@ def section3Audit():
         commandRun('chown root {}'.format(logDir))
 
     if chkList[1]:
+        if group.startswith('${'):
+            group = varDict[group[2:-1]]
+
         res = os.popen('find {} -prune \! -group {}'.format(logDir, group))
         if res:
             print('Apache log directory not owned by {} group'.format(group))
@@ -330,7 +330,7 @@ def section3Audit():
         print('ScoreBoardFile directory is on an NFS mounted filesystem')
         
     # Ensure PID File is Secured
-    res = os.popen('grep "PidFile " {}'.format(confFilePath)).read()
+    res = os.popen('grep "PidFile " {}'.format(apacheConfFile)).read()
     pidFilePath = res.split(' ', 1)[1]
     
     if pidFilePath.startswith('${'):
@@ -355,63 +355,42 @@ def section3Audit():
         commandRun('chmod o-w {}'.format(pidDir))
 
     # Ensure ScoreBoard File is Secured
-    confPaths = []
-    if os.path.isfile(r'{}/apache2.conf'.format(webSerDir)):
-        confPaths.append(r'{}/apache2.conf'.format(webSerDir))
+    res = os.popen('grep ScoreBoardFile {}'.format(apacheConfFile)).read().split('\n')[:-1]
 
-    print('Current Conf Files to be Anaylzed:')
-    print(confPaths[0])
+    if res:
+        for score in res:
+            scoreBoardDir = score.split(' ', 1).rsplit('/', 1)
 
-    chk = input('Are there any other conf files with the ScoreBoard directive? (Y/N) ')
-    if chk.lower() == 'y':
-        newConf = input('Enter conf file path (Enter "end" when done): ')
-        while newConf.lower() != 'end':
-            if os.path.isfile(newConf):
-                confPaths.append(newConf)
-            else:
-                print('File not found')
+            # CHANGE SCOREBOARD DIRECTORY (MANUAL FIX)
+            if docRoot in scoreBoardDir:
+                print('ScoreBoardFile directory in document root')
 
-            newConf = input('Enter conf file path (Enter "end" when done): ')
+            res = os.popen('find {} -prune \! -user root'.format(scoreBoardDir)).read()
 
-    for conf in confPaths:
-        res = os.popen('grep ScoreBoardFile {}'.format(conf)).read().split('\n')[:-1]
+            if res:
+                print('ScoreBoardFile directory not owned by root')
+                commandRun('chown root:root {}'.format(scoreBoardDir))
+            
+            res = os.popen('find {} -prune -perm /o+w'.format(scoreBoardDir)).read()
+            
+            if res:
+                print('ScoreBoardFile directory writable by others')
+                commandRun('chmod o-w {}'.format(scoreBoardDir))
 
-        if res:
-            for score in res:
-                scoreBoardDir = score.split(' ', 1).rsplit('/', 1)
+            res = os.popen('df -PT {} | tail -n +2 | awk "{{print $2}}" '.format(scoreBoardDir)).read().split('\n')[0]
 
-                # CHANGE SCOREBOARD DIRECTORY (MANUAL FIX)
-                if docRoot in scoreBoardDir:
-                    print('ScoreBoardFile directory in document root')
-
-                res = os.popen('find {} -prune \! -user root'.format(scoreBoardDir)).read()
-
-                if res:
-                    print('ScoreBoardFile directory not owned by root')
-                    commandRun('chown root:root {}'.format(scoreBoardDir))
-                
-                res = os.popen('find {} -prune -perm /o+w'.format(scoreBoardDir)).read()
-                
-                if res:
-                    print('ScoreBoardFile directory writable by others')
-                    commandRun('chmod o-w {}'.format(scoreBoardDir))
-
-                res = os.popen('df -PT {} | tail -n +2 | awk "{{print $2}}" '.format(scoreBoardDir)).read().split('\n')[0]
-
-                # MOVE DIRECTORY TO LOCAL HARD DRIVE (MANUAL FIX)
-                if res == 'nfs':
-                    print('ScoreBoardFile directory is on an NFS mounted filesystem')
+            # MOVE DIRECTORY TO LOCAL HARD DRIVE (MANUAL FIX)
+            if res == 'nfs':
+                print('ScoreBoardFile directory is on an NFS mounted filesystem')
 
     
+    # # KIV
+    # # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
+    # res = os.popen('find {} -prune \! -user {}'.format(docRoot, varDict['APACHE_RUN_USER'])).read()
 
-   
-    # KIV
-    # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
-    res = os.popen('find {} -prune \! -user {}'.format(docRoot, varDict['APACHE_RUN_USER'])).read()
-
-    # GIVE FIX
-    if res:
-        print('Document Root not owned by Run User')
+    # # GIVE FIX
+    # if res:
+    #     print('Document Root not owned by Run User')
     
     
 def handleDirective(pattern, content, confUpdate, isDir=False):
@@ -585,31 +564,23 @@ def rmAllowOverrideList(confContent):
     return '\n'.join(contentSplit)
 
 
-# 4. Apache Access Control (Audit) - Half Way
+# 4. Apache Access Control (Audit)
 def section4Audit():
-    # Getting Conf Files with Directives and Location Elements
-    confPaths = []
-    if os.path.isfile(r'{}/apache2.conf'.format(webSerDir)):
-        confPaths.append(r'{}/apache2.conf'.format(webSerDir))
+    # Getting List of Conf Files for Web Content to Analyze
+    #   - apache2.conf
+    #   - sites-enabled
+    #       - *.conf
 
-    print('Current Conf Files to be Anaylzed:')
-    print(confPaths[0])
-
-    chk = input('Are there any other conf files with Web Content elements? (Y/N) ')
-    if chk.lower() == 'y':
-        newConf = input('Enter conf file path (Enter "end" when done): ')
-        while newConf.lower() != 'end':
-            if os.path.isfile(newConf):
-                confPaths.append(newConf)
-            else:
-                print('File not found')
-
-            newConf = input('Enter conf file path (Enter "end" when done): ')
-
+    confPaths = ['SERVER_CONFIG_FILE']
+    confPaths.extend(os.popen('ls {}/sites-enabled/*.conf'.format(webSerDir)).read().split('\n')[:-1])
     
     for confFile in confPaths:
-        with open(confFile) as f:
-            content = f.read()
+        if confFile == 'SERVER_CONFIG_FILE':
+            global apacheConfContent
+            content = apacheConfContent
+        else:
+            with open(confFile) as f:
+                content = f.read()
         
         confUpdate = False
 
@@ -649,11 +620,14 @@ def section4Audit():
         content = rmAllowOverrideList(content)
         
         if confUpdate:
-            confName = confFile.split(r'/')[-1]
+            if confFile == 'SERVER_CONFIG_FILE':
+                apacheConfContent = content
+            else:
+                confName = confFile.split(r'/')[-1]
 
-            if runFix:
-                with open('fixed-{}'.format(confName), 'w') as f:
-                    f.write(content)
+                if runFix:
+                    with open('fixed-{}'.format(confName), 'w') as f:
+                        f.write(content)
 
 
 if __name__ == '__main__':
@@ -661,11 +635,15 @@ if __name__ == '__main__':
 
     # Goal: Determine web server configuration dir
     webSerDir = r'/etc/apache2'
-
-    if (os.path.isdir(webSerDir)):
-        print('Apache Folder Found')
-    else:
+    if not os.path.isdir(webSerDir):
         webSerDir = input('Enter Configuration Folder Location: ')
+    
+    apacheConfFile = '{}/apache2.conf'.format(webSerDir)
+    if not os.path.isfile(apacheConfFile):
+        apacheConfFile = input('Enter Main Configuration File Location: ')
+
+    with open(apacheConfFile) as f:
+        apacheConfContent = f.read()
 
     modCheck, modules = section2Audit()
     section2Analyze(modCheck, modules)
