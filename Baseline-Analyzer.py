@@ -3,7 +3,22 @@ import re
 import sys
 import subprocess
 
-# Separates modules to statically or dynamically loaded
+
+'''
+Will either run or print the command given based on the remedy flag
+'''
+def commandRun(command):
+    if remedy:
+        os.system(command)
+    else:
+        print('Run Command: {}'.format(command))
+        print()
+
+
+'''
+Section 2: Minimize Apache Modules
+Separates modules to statically or dynamically loaded
+'''
 def filterMods(modList):
     staticMods = []
     dynamicMods = []
@@ -23,16 +38,10 @@ def filterMods(modList):
     return staticMods, dynamicMods
 
 
-# Will either run command or print
-def commandRun(command):
-    if remedy:
-        os.system(command)
-    else:
-        print(command)
-        print()
-
-
-# Gives the appropriate fix for statically or dynamically loaded modules
+'''
+Section 2: Minimize Apache Modules
+Gives the appropriate fix for statically or dynamically loaded modules
+'''
 def modDisable(modList):
     staticMod, dynamicMod = filterMods(modList)
     if len(staticMod):
@@ -66,8 +75,11 @@ def modDisable(modList):
         commandRun(disCom)
 
 
-# 2. Minimize Apache Modules (Audit)
+'''
+Section 2: Minimize Apache Modules (Audit)
+'''
 def section2Audit():
+    print("### Start of Section 2 ###\n")
     modules = {}
     modCheck = [False, False, False, False, False, False, False, False, False]
 
@@ -136,7 +148,9 @@ def section2Audit():
     return modCheck, modules
 
 
-# 2. Minimize Apache Modules (Analyze) - Left 2.1
+'''
+Section 2: Minimize Apache Modules (Analyze)
+'''
 def section2Analyze(modCheck, modules):
     modDisList = []
     if modCheck[0]:
@@ -180,9 +194,14 @@ def section2Analyze(modCheck, modules):
     if len(modDisList):
         modDisable(modDisList)
 
+    print("\n### End of Section 2 ###\n")
 
-# 3. Principles, Permissions and Ownerships (Audit)
+
+'''
+Section 3: Principles, Permissions and Ownerships
+'''
 def section3Audit():
+    print("### Start of Section 3 ###\n")
     # Get Apache Environment Variables
     envVarPath = '{}/envvars'.format(webSerDir)
     while not os.path.isfile(envVarPath):
@@ -427,6 +446,9 @@ def section3Audit():
  
     # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
     # Does not seem possible to do automatically, since we will require all the possible writable directories that the user will be having 
+
+    print("\n### End of Section 3 ###\n")
+
     
 def handleDirective(pattern, content, confUpdate, isDir=False):
     res = re.finditer(pattern, content)
@@ -460,7 +482,10 @@ def handleDirective(pattern, content, confUpdate, isDir=False):
     return content, confUpdate
 
 
-# Checks for the appropriate access control for the OS root directory
+'''
+Section 4: Apache Access Control
+Checks for the appropriate access control for the OS root directory
+'''
 def rootDirectory(dirField):
     dirSplit = dirField.split('\n')
     toRemove = []
@@ -508,7 +533,10 @@ def rootDirectory(dirField):
     return updatedField, changed
     
 
-# Checks for the appropriate access control for directives
+'''
+Section 4: Apache Access Control
+Checks for the appropriate access control for directives
+'''
 def webContent(dirField, isDir=False):
     dirSplit = dirField.split('\n')
     print('Current checking directives for {}'.format(dirSplit[0]))
@@ -565,7 +593,10 @@ def webContent(dirField, isDir=False):
     return updatedField, changed
 
 
-# Updates the configuration file content
+'''
+Section 4: Apache Access Control
+Updates the configuration file content
+'''
 def updateConf(confChanges, confContent):
     newContent = []
     for change in reversed(confChanges):
@@ -583,7 +614,10 @@ def updateConf(confChanges, confContent):
     return ''.join(newContent)
 
 
-# Removes any instances of the AllowOverrideList directive from the configuration content
+'''
+Section 4: Apache Access Control
+Removes any instances of the AllowOverrideList directive from the configuration content
+'''
 def rmAllowOverrideList(confContent):
     contentSplit = confContent.split('\n')
     toRemove = []
@@ -602,13 +636,15 @@ def rmAllowOverrideList(confContent):
     return '\n'.join(contentSplit)
 
 
-# 4. Apache Access Control (Audit)
+'''
+Section 4: Apache Access Control
+'''
 def section4Audit():
     # Getting List of Conf Files for Web Content to Analyze
     #   - apache2.conf
     #   - sites-enabled
     #       - *.conf
-
+    print("### Start of Section 4 ###\n")
     confPaths = ['SERVER_CONFIG_FILE']
     confPaths.extend(os.popen('ls {}/sites-enabled/*.conf'.format(webSerDir)).read().split('\n')[:-1])
     
@@ -667,6 +703,8 @@ def section4Audit():
                     with open('{}.new'.format(confName), 'w') as f:
                         f.write(content)
 
+    print("\n### End of Section 4 ###\n")
+
 
 '''
 Section 10: Request Limits
@@ -719,6 +757,8 @@ def section10():
         output_file.write("\n### End of Added Directives for Section 10  of CIS Benchmark ###\n")
         print(
             "\nAll changes are saved to " + apacheConfFile + ".new. To reflect all changes, manually rename this file to apache2.conf.")
+
+    print("\n### End of Section 10 ###\n")
 
 
 '''
@@ -798,7 +838,7 @@ def section11():
     # If SELinux is installed, exit Section 11 since the rest of the section will involve SELinux.
     if not selinux_installed:
         print("Skipping Section 11...\n")
-        print("\n### End of Section 11 ###")
+        print("\n### End of Section 11 ###\n")
         return
 
     ## 11.2 Ensure Apache Processes Run in the httpd_t Confined Context 
@@ -860,7 +900,7 @@ def section11():
     else: 
         print("No SELinux httpd booleans found. No action is required.")
 
-    print("\n### End of Section 11 ###")
+    print("\n### End of Section 11 ###\n")
 
 
 '''
@@ -936,7 +976,7 @@ def section12():
         # If AppArmor is not enabled or doesn't have dependencies installed, exit Section 12 since the rest of the section will involve AppArmor.
         if not apparmor_enabled:
             print("Skipping Section 12...")
-            print("\n### End of Section 12 ###")
+            print("\n### End of Section 12 ###\n")
             return
 
         # 12.2 Ensure the Apache AppArmor Profile Is Configured Properly.
@@ -1021,7 +1061,7 @@ def section12():
             subprocess.run("aa-enforce apache2", shell=True)
             subprocess.run("/etc/init.d/apparmor reload", shell=True)
 
-    print("\n### End of Section 12 ###")
+    print("\n### End of Section 12 ###\n")
 
 
 '''
@@ -1111,14 +1151,11 @@ if __name__ == '__main__':
     with open(apacheConfFile) as f:
         apacheConfContent = f.read()
 
-    print('Section 2: Minimize Apache Modules')
     modCheck, modules = section2Audit()
     section2Analyze(modCheck, modules)
 
-    print('\nSection 3: Principls, Permissions and Ownerships')
     section3Audit()
 
-    print('\nSection 4: Apache Access Control')
     section4Audit()
 
     section10()
