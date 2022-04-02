@@ -663,7 +663,7 @@ def section4Audit():
             else:
                 confName = confFile.split(r'/')[-1]
 
-                if runFix:
+                if remedy:
                     with open('{}.new'.format(confName), 'w') as f:
                         f.write(content)
 
@@ -1120,7 +1120,6 @@ if __name__ == '__main__':
 
     print('\nSection 4: Apache Access Control')
     section4Audit()
-
 
     section10()
 
