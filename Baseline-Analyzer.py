@@ -8,7 +8,9 @@ def filterMods(modList):
 
     if len(modList):
         for mod in modList:
-            if mod:
+            if mod == 'Log_Config':
+                staticMods.append('mod')
+            else:
                 modName = mod[1:-9]
                 modType = mod[-7:-1]
                 if modType == 'static':
@@ -25,6 +27,7 @@ def commandRun(command):
         os.system(command)
     else:
         print(command)
+        print()
 
 
 # Gives the appropriate fix for statically or dynamically loaded modules
@@ -36,15 +39,19 @@ def modDisable(modList):
         prefix = input('Enter location of server installation: ')
         configStr = './configure'
         for mod in staticMod:
-            modName = mod.split('_module')[0].replace('_', '-')
-            configStr += ' --disable-{}'.format(modName)
+            if mod != 'Log_Config':
+                modName = mod.split('_module')[0].replace('_', '-')
+                configStr += ' --disable-{}'.format(modName)
         
-        commandRun('cd {}'.format(pathToDis))
-        commandRun('{} --prefix={}'.format(configStr, prefix))
-        commandRun('make')
-        commandRun('make install')
-        commandRun('{}/bin/apachectl -k graceful-stop'.format(prefix))
-        commandRun('{}/bin/apachectl -k start'.format(prefix))
+
+        commandStr = ('cd {}'.format(pathToDis) + '\n'
+                        + '{} --prefix={}'.format(configStr, prefix) + '\n'
+                        + 'make\n'
+                        + 'make install\n'
+                        + '{}/bin/apachectl -k graceful-stop'.format(prefix) + '\n'
+                        + '{}/bin/apachectl -k start'.format(prefix))
+
+        commandRun(commandStr)
 
     if len(dynamicMod):
         print('Shared Modules to Disable')
@@ -55,7 +62,6 @@ def modDisable(modList):
             disCom += ' {}'.format(modName)
 
         commandRun(disCom)
-        commandRun('service apache2 reload')
 
 
 # 2. Minimize Apache Modules (Audit)
@@ -132,11 +138,14 @@ def section2Audit():
 def section2Analyze(modCheck, modules):
     modDisList = []
     if modCheck[0]:
-        print('Only Enable the Necessary Files')
+        print('Authentication and Authorization modules found')
+        print('Only enable the necessary modules')
         print(modules[0])
+        print()
 
     if not modCheck[1]:
-        print('Logging Module Disabled!!')
+        print('Log_Config Module Disabled!!')
+        modDisList.append('Log_Config')
 
     if not modCheck[2]:
         print('WebDAV Modules Enabled!!')
@@ -505,6 +514,7 @@ def webContent(dirField, isDir=False):
                 changed = True
             
             requireFound = True
+            print()
         elif 'Deny' in line:
             toRemove.append(index)
             changed = True
@@ -557,9 +567,11 @@ def rmAllowOverrideList(confContent):
             if line.split()[0] == 'AllowOverrideList':
                 toRemove.append(index)
 
-    toRemove.reverse()
-    for index in toRemove:
-        contentSplit.pop(index)
+    if len(toRemove):
+        print('Removing AllowOverrideList Directives')
+        toRemove.reverse()
+        for index in toRemove:
+            print(contentSplit.pop(index))
 
     return '\n'.join(contentSplit)
 
@@ -626,7 +638,7 @@ def section4Audit():
                 confName = confFile.split(r'/')[-1]
 
                 if runFix:
-                    with open('fixed-{}'.format(confName), 'w') as f:
+                    with open('{}.new'.format(confName), 'w') as f:
                         f.write(content)
 
 
@@ -698,11 +710,21 @@ if __name__ == '__main__':
     if res != '0':
         print('Run script with root permissions')
     else:
+        print('Section 2: Minimize Apache Modules')
         modCheck, modules = section2Audit()
         section2Analyze(modCheck, modules)
 
+        print('\nSection 3: Principls, Permissions and Ownerships')
         section3Audit()
 
+        print('\nSection 4: Apache Access Control')
         section4Audit()
 
+
+        print('\nSection 10: Request Limits')
         section10()
+
+        if runFix:
+            commandRun('service apache2 reload')
+        else:
+            print('Remember to reload apache after applying the changes')
