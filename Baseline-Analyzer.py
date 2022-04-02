@@ -471,13 +471,17 @@ def handleDirective(pattern, content, confUpdate, isDir=False):
         elif dirField.split('\n')[0] in ['<Directory>', '<Directory />']:
             updatedField, changed = rootDirectory(dirField)
             if changed:
+                print('Original Directive:\n{}'.format(dirField))
+
+                print('\nUpdated Directive:\n{}\n'.format(updatedField))
                 confChanges.append((dirIndexes, updatedField))
 
         else:
             updatedField, changed = webContent(dirField, isDir)
             if changed:
-                print(dirField)
-                print(updatedField)
+                print('Original Directive:\n{}'.format(dirField))
+
+                print('\nUpdated Directive:\n{}\n'.format(updatedField))
                 confChanges.append((dirIndexes, updatedField))
 
     if len(confChanges):
@@ -702,11 +706,11 @@ def section4Audit():
             if confFile == 'SERVER_CONFIG_FILE':
                 apacheConfContent = content
             else:
-                confName = confFile.split(r'/')[-1]
-
                 if remedy:
-                    with open('{}.new'.format(confName), 'w') as f:
+                    with open('{}.new'.format(confFile), 'w') as f:
                         f.write(content)
+                    
+                    print('\nAll changes are saved to {}.new. To reflect all changes, manually rename this file to {}.'.format(confFile, confFile))
 
     print("\n### End of Section 4 ###\n")
 
