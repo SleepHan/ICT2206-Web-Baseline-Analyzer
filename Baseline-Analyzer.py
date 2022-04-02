@@ -193,24 +193,29 @@ def section3Audit():
         if len(var) == 2:
             varDict[var[0]] = var[1]
 
+    docRoot = os.popen('grep -i DocumentRoot {}/sites-available/000-default.conf'.format(webSerDir)).read().split()[-1]
+
+    # 3.1
     # [User Exist, Group Exist]
     chkList = [False, False]
 
-    # ADD APACHE USER (MANUAL FIX)
+    # ADD APACHE USER (MANUAL FIX) - Done
     res = os.popen('grep -i ^User {}'.format(apacheConfFile)).read()
     if res:
         user = res.split('User ')[1].replace('\n', '')
         chkList[0] = True
     else:
-        print('No Apache User found')
+        print('No Apache user found')
+        print('Ensure there is a User directive present in the {} file'.format(apacheConfFile))
     
-    # ADD APACHE GROUP (MANUAL FIX)
+    # ADD APACHE GROUP (MANUAL FIX) -Done
     res = os.popen('grep -i ^Group {}'.format(apacheConfFile)).read()
     if res:
         group = res.split('Group ')[1].replace('\n', '')
         chkList[1] = True
     else:
         print('No Apache group found')
+        print('Ensure there is a Group directive present in the {} file'.format(apacheConfFile))
 
     if chkList[0]:
         if user.startswith('${'):
@@ -223,13 +228,20 @@ def section3Audit():
         ids = res.split()
         uid = int(ids[0][4:].split('(')[0])
 
-        # CREATE NEW USER (MANUAL FIX)
+        # REVERT TO DEFAULT/CREATE NEW USER (MANUAL FIX)
         if uid >= uidMin:
             print('Apache running as non-system account')
+            print('Fixing methods:')
+            print('1. Revert to default user account (www-data)')
+            print('2. useradd <USER_NAME> --r -g {} -d {} -s /sbin/nologin'.format(group, docRoot))
+            print()
 
         # REMOVE FROM SUDOER GROUP (MANUAL FIX)
         elif 'sudo' in ids[2]:
             print('Apache user has sudo privilege')
+            print('Fixing Methods:')
+            print('1. deluser {} sudo'.format(user))
+            print()
 
         else:
             # Ensure Apache User Account has Invalid Shell
@@ -271,7 +283,6 @@ def section3Audit():
         commandRun('chmod -R g-w {}'.format(webSerDir))
 
     # Ensure Core Dump Directory is Secured
-    docRoot = os.popen('grep -i DocumentRoot {}/sites-available/000-default.conf'.format(webSerDir)).read().split()[-1]
     res = os.popen('grep -n CoreDumpDirectory {}'.format(apacheConfFile)).read().split('\n')[:-1]
     
     # Get the line number of the CoreDumpDirectory directive
@@ -291,34 +302,50 @@ def section3Audit():
         print('Apache log directory not owned by root')
         commandRun('chown root {}'.format(logDir))
 
-    if chkList[1]:
-        if group.startswith('${'):
-            group = varDict[group[2:-1]]
-
-        res = os.popen('find {} -prune \! -group {}'.format(logDir, group))
-        if res:
-            print('Apache log directory not owned by {} group'.format(group))
-            commandRun('chgrp {} {}'.format(group, logDir))
-
-        # Ensure Group Write Access for Document Root Directories and Files is Properly Restricted
-        res = os.popen('find -L {} -group {} -perm /g=w -ls'.format(docRoot, group)).read()
-        
-        if res:
-            print('DocumentRoot directories/files found with group write access')
-            commandRun('find -L {} -group {} -perm /g=w -print | xargs chmod g-w'.format(docRoot, group))
-
     res = os.popen('find {} -prune -perm /o=rwx'.format(logDir)).read()
 
     if res:
         print('Apache log directory accessible by others')
         commandRun('chmod o-rwx {}'.format(logDir))
 
+    if chkList[1]:
+        if group.startswith('${'):
+            group = varDict[group[2:-1]]
+
+        # Check if group is a system group
+        res = os.popen('grep ^GID_MIN /etc/login.defs').read()
+        gidMin = int(res.split()[1])
+
+        res = os.popen('getent group {}'.format(group)).read()
+        gid = int(res.split(':')[2])
+
+        # REVERT TO DEFAULT/CREATE NEW GROUP (MANUAL FIX)
+        if gid >= gidMin:
+            print('Apache group ({}) is non-system'.format(group))
+            print('Fixing methods:')
+            print('1. Revert to default group (www-data)')
+            print('2. groupadd -r <GROUP_NAME>')
+            print()
+        else:
+            res = os.popen('find {} -prune \! -group {}'.format(logDir, group))
+            if res:
+                print('Apache log directory not owned by {} group'.format(group))
+                commandRun('chgrp {} {}'.format(group, logDir))
+
+            # Ensure Group Write Access for Document Root Directories and Files is Properly Restricted
+            res = os.popen('find -L {} -group {} -perm /g=w -ls'.format(docRoot, group)).read()
+            
+            if res:
+                print('DocumentRoot directories/files found with group write access')
+                commandRun('find -L {} -group {} -perm /g=w -print | xargs chmod g-w'.format(docRoot, group))
+
     # Ensure Lock File is Secured
     lockDir = varDict['APACHE_LOCK_DIR']
-
+    
     # CHANGE LOCK DIRECTORY (MANUAL FIX)
     if docRoot in lockDir:
-        print('Lock directory in document root')
+        print('Lock directory in document root: {}'.format(lockDir))
+        print('Move/Modify directory to one outside of {}'.format(docRoot))
 
     res = os.popen('find {} -prune \! -user root'.format(lockDir)).read()
 
@@ -336,7 +363,8 @@ def section3Audit():
 
     # MOVE DIRECTORY TO LOCAL HARD DRIVE (MANUAL FIX)
     if res == 'nfs':
-        print('ScoreBoardFile directory is on an NFS mounted filesystem')
+        print('Lock file directory is on an NFS mounted filesystem: {}'.format(lockDir))
+        print('Move/Modify directory to a locally mounted file system (E.g. /var/lock/apache2)')
         
     # Ensure PID File is Secured
     res = os.popen('grep "PidFile " {}'.format(apacheConfFile)).read()
@@ -349,7 +377,8 @@ def section3Audit():
 
     # CHANGE PID DIRECTORY (MANUAL FIX)
     if docRoot in pidDir:
-        print('PID directory in document root')
+        print('PID directory in document root: {}'.format(pidDir))
+        print('Move/Modify directory to one outside of {}'.format(docRoot))
 
     res = os.popen('find {} -prune \! -user root'.format(pidDir)).read()
 
@@ -372,7 +401,8 @@ def section3Audit():
 
             # CHANGE SCOREBOARD DIRECTORY (MANUAL FIX)
             if docRoot in scoreBoardDir:
-                print('ScoreBoardFile directory in document root')
+                print('ScoreBoardFile directory in document root: {}'.format(scoreBoardDir))
+                print('Move/Modify directory to one outside of {}'.format(docRoot))
 
             res = os.popen('find {} -prune \! -user root'.format(scoreBoardDir)).read()
 
@@ -390,17 +420,11 @@ def section3Audit():
 
             # MOVE DIRECTORY TO LOCAL HARD DRIVE (MANUAL FIX)
             if res == 'nfs':
-                print('ScoreBoardFile directory is on an NFS mounted filesystem')
-
-    
-    # # KIV
-    # # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
-    # res = os.popen('find {} -prune \! -user {}'.format(docRoot, varDict['APACHE_RUN_USER'])).read()
-
-    # # GIVE FIX
-    # if res:
-    #     print('Document Root not owned by Run User')
-    
+                print('ScoreBoardFile directory is on an NFS mounted filesystem: {}'.format(scoreBoardDir))
+                print('Move/Modify directory to a locally mounted file system')
+ 
+    # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
+    # Does not seem possible to do automatically, since we will require all the possible writable directories that the user will be having 
     
 def handleDirective(pattern, content, confUpdate, isDir=False):
     res = re.finditer(pattern, content)
