@@ -194,7 +194,7 @@ def section2Analyze(modCheck, modules):
     if len(modDisList):
         modDisable(modDisList)
 
-    print("\n### End of Section 2 ###\n")
+    print("\n### End of Section 2 ###")
 
 
 '''
@@ -447,7 +447,7 @@ def section3Audit():
     # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
     # Does not seem possible to do automatically, since we will require all the possible writable directories that the user will be having 
 
-    print("\n### End of Section 3 ###\n")
+    print("\n### End of Section 3 ###")
 
 
 '''
@@ -712,7 +712,7 @@ def section4Audit():
                     
                     print('\nAll changes are saved to {}.new. To reflect all changes, manually rename this file to {}.'.format(confFile, confFile))
 
-    print("\n### End of Section 4 ###\n")
+    print("\n### End of Section 4 ###")
 
 
 '''
@@ -767,7 +767,7 @@ def section10():
         print(
             "\nAll changes are saved to " + apacheConfFile + ".new. To reflect all changes, manually rename this file to apache2.conf.")
 
-    print("\n### End of Section 10 ###\n")
+    print("\n### End of Section 10 ###")
 
 
 '''
