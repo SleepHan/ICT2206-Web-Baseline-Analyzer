@@ -1093,8 +1093,8 @@ def prereq_check():
     user_id = int(ret.stdout.decode())
 
     if user_id != 0:
-        print("Not root. Running as root...")
-        subprocess.run("sudo bash", shell=True) 
+        print("Script requires root permissions to continue...")
+        exit(-1)
     else:
         install_apache = ""
 
