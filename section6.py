@@ -22,11 +22,14 @@ def section6Audit():
     print("### Start of Section 6 ###\n")
     global apacheConfContent
     apacheConfContentSplit = apacheConfContent.split('\n')
+    errorLogFile = ''
+    errorLogFaci = ''
 
     # 6.1 Ensure Error Log Filename and Severity Level are Configured Correctly
     # Get LogLevel for main level, ignore the rest (E.g. Found in directives)
     for index in range(len(apacheConfContentSplit)):
         line = apacheConfContentSplit[index]
+        # Ensure LogLevel is of the appropriate level
         if 'LogLevel' in line:
             # Ensure that line is not a comment or from some directive
             if line[0] not in ['#', '\t']:
@@ -82,11 +85,60 @@ def section6Audit():
                         print('Updating LogLevel directive in {}\n'.format(apacheConfFile))
                         apacheConfContentSplit[index] = ' '.join(values)
                     else:
-                        print('Update LogLevel directiive to this:')
+                        print('Update LogLevel directive to this:')
                         print(' '.join(values))
                         print()
-                    
+        
+        # Ensure log files is appropriate
+        # Ensure syslog facility is appropriate
+        elif 'ErrorLog' in line:
+            if line[0] not in ['#', '\t']:
+                value = line.split()[1]
+                sysLogFac = ['local0', 'loca1', 'local2', 'local3', 'local4', 'local5', 'local6', 'local7']
 
+                # Check syslog facility
+                if value.startswith('syslog'):
+                    print('Checking ErrorLog Syslog Facility')
+                    fac = value.split(':')[1]
+                    if fac not in sysLogFac:
+                        if remedy:
+                            print('Updating ErrorLog syslog Facility in {}'.format(apacheConfFile))
+                            apacheConfContentSplit[index] = errorLogFaci = 'ErrorLog syslog:local7'
+                        else:
+                            print('Update this ErrorLog directive')
+                            print('Old: {}'.format(line))
+                            print('New: ErrorLog syslog:local7')
+
+                    print()
+
+                # Check log file
+                # Check if log file location is writable by others
+                else:
+                    print('Checking ErrorLog File')
+                    fileDir = value.rsplit('/')[0]
+                    if fileDir.startswith('${'):
+                        fileDir = varDict[fileDir[2:-1]]
+
+                    res = os.popen('find -L {} -prune \! -perm o+w'.format(fileDir)).read()
+                    if res:
+                        print('Log directory is writable by others')
+                        print('Fix Methods:')
+                        print('1. Remove write permissions for others')
+                        print('2. Move/Modify directory to something not writable by others')
+                    else:
+                        errorLogFile = line
+
+                    print()
+
+    if errorLogFile:
+        print('Update Virual Hosts')
+    else:
+        print('Write ErrorLog ${{APACHE_LOG_DIR}}/error.log')
+
+    if errorLogFaci:
+        print('Update Virual Hosts')
+    else:
+        print('Write ErrorLog syslog:local7')
 
     # 6.2 Ensure Sysloog Facility is Configured for Error Logging
 
@@ -159,6 +211,8 @@ def section6Audit():
         print('ModSecurity module enabled\n')
 
     # 6.7 Ensure OWASP ModSecurity Core Rule Set is Installed and Enabled
+
+    apacheConfContent = '\n'.join(apacheConfContentSplit)
     print("\n### End of Section 6 ###")
 
 
@@ -242,12 +296,25 @@ if __name__ == '__main__':
     if not os.path.isdir(webSerDir):
         webSerDir = input('Enter Configuration Folder Location: ')
     
+    # Get Apache config contents
     apacheConfFile = '{}/apache2.conf'.format(webSerDir)
     if not os.path.isfile(apacheConfFile):
         apacheConfFile = input('Enter Main Configuration File Location: ')
 
     with open(apacheConfFile) as f:
         apacheConfContent = f.read()
+
+    # Get Apache Environment Variables
+    envVarPath = '{}/envvars'.format(webSerDir)
+    while not os.path.isfile(envVarPath):
+        envVarPath = input('Enter path to environment variable file: ')
+    
+    envVars = [i.split('export ')[1].split('=') for i in os.popen('cat {} | grep export'.format(envVarPath)).read().split('\n') if i and i[0] != '#']
+
+    varDict = {}
+    for var in envVars:
+        if len(var) == 2:
+            varDict[var[0]] = var[1]
 
     section6Audit()
 
