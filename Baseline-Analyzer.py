@@ -1085,6 +1085,9 @@ def section12():
 Pre-requisites checks:
 
 1. Check if root.
+2. Check if Apache is installed.
+3. Check if Apache is running.
+
 '''
 def prereq_check():
     # id -u checks for user id. 0 means root, non-zero means normal user.
