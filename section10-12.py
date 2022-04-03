@@ -99,7 +99,7 @@ def section11(remedy):
         selinux_installed = True
         selinux_permissive = True
         if not remedy:
-            print("SELinux is enabled in Permissive mode. Please enforce it with \'setenforce 1\'")
+            print("SELinux is enabled in Permissive mode. Enforce it with \'setenforce 1\', but at your own risk, because it can cause stability issues in Ubuntu.")
             
 
     elif "Enforcing" in getenforce_output:
