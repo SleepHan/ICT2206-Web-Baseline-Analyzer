@@ -14,6 +14,34 @@ def commandRun(command):
         print('Run Command: {}'.format(command))
         print()
 
+'''
+Section 1: Planning and Installation
+'''
+def section1():
+    print("### Start of Section 1 ###\n")
+    ## Section 1.1 Ensure the Pre-Installation Planning Checklist Has Been Implemented
+    print("Ensure the Pre-Installation Planning Checklist in Section 1.1 of the CIS Apache 2.4 Benchmark has been implemented.")
+    
+    ## Section 1.2 Ensure the Server Is Not a Multi-Use System
+    ret = subprocess.run("systemctl list-units --all --type=service --no-pager | grep -w active | grep running > active_running_services.txt", capture_output=True, shell=True)
+    active_running_output = ret.stdout.decode()
+    print("All active and running services are saved to active_running_services.txt. Disable or uninstall unneeded services.")
+
+    if remedy:
+        services_to_disable = input("Enter services to disable (separated by comma): ")
+
+        services_to_disable_list = services_to_disable.split(",")
+        
+        print("Services to disable: \n")
+        for service in services_to_disable_list:
+            service = service.strip()
+            subprocess.run("systemctl start " + service, capture_output=True, shell=True)
+            subprocess.run("systemctl disable " + service, capture_output=True, shell=True)
+    
+    ## Section 1.3  Ensure Apache Is Installed From the Appropriate Binaries
+    print("Ensure that Apache is installed with \'apt-get install apache2\', instead of downloading custom Apache binaries.")
+
+    print("\n### End of Section 1 ###")
 
 '''
 Section 2: Minimize Apache Modules
@@ -1085,7 +1113,7 @@ def section12():
 Pre-requisites checks:
 
 1. Check if root.
-2. Check if Apache is installed.
+2. Section 1 of CIS Apache Benchmark.
 3. Check if Apache is running.
 
 '''
@@ -1095,10 +1123,14 @@ def prereq_check():
     ret = subprocess.run(command, capture_output=True, shell=True)
     user_id = int(ret.stdout.decode())
 
+
     if user_id != 0:
         print("Script requires root permissions to continue...")
         exit(-1)
     else:
+
+        section1()
+
         install_apache = ""
 
         ret = subprocess.run("apachectl", capture_output=True, shell=True)
@@ -1156,8 +1188,8 @@ def remedy_check():
 
 
 if __name__ == '__main__':
-    prereq_check()
     remedy = remedy_check()
+    prereq_check()
 
     # Goal: Determine web server configuration dir
     webSerDir = r'/etc/apache2'
@@ -1188,4 +1220,4 @@ if __name__ == '__main__':
     if remedy:
         commandRun('service apache2 reload')
     else:
-        print('Remember to reload apache after applying the changes')
+        print('Remember to reload Apache after applying the changes')
