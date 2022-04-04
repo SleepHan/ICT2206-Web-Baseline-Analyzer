@@ -28,16 +28,31 @@ def section1():
     print("All active and running services are saved to active_running_services.txt. Disable or uninstall unneeded services.")
 
     if remedy:
-        services_to_disable = input("Enter services to disable (separated by comma): ")
+        disable_service = ""
+        while not re.match(r"^y$", disable_service) and not re.match(r"^n$", disable_service):
+            disable_service = input("Disable service(s)? (Y/N) ").rstrip().lower()
+            if re.match(r"^y$", disable_service):
+                services_to_disable = input("Enter service(s) to disable (separated by comma): ")
+                services_to_disable_list = services_to_disable.split(",")
 
-        services_to_disable_list = services_to_disable.split(",")
-        
-        print("Services to disable: \n")
-        for service in services_to_disable_list:
-            service = service.strip()
-            subprocess.run("systemctl start " + service, capture_output=True, shell=True)
-            subprocess.run("systemctl disable " + service, capture_output=True, shell=True)
-    
+                for service in services_to_disable_list:
+                    service = service.strip().replace("\n", "")
+
+                    ret2= subprocess.run("systemctl stop " + service, capture_output=True, shell=True)
+                    ret3 = subprocess.run("systemctl disable " + service, capture_output=True, shell=True)
+
+                    if ret2.returncode!=0:
+                        print("Failed to stop " + service)
+                    
+                    if ret3.returncode!=0:
+                        print("Failed to disable " + service)
+
+            elif re.match(r"^n$", disable_service) :
+                print("No services will be disabled.\n")
+                
+            else:
+                continue
+
     ## Section 1.3  Ensure Apache Is Installed From the Appropriate Binaries
     print("Ensure that Apache is installed with \'apt-get install apache2\', instead of downloading custom Apache binaries.")
 
@@ -934,7 +949,7 @@ def section11():
                 
                 print("SELinux httpd booleans to disable: \n")
                 for httpd_boolean in httpd_booleans_to_disable_list:
-                    httpd_boolean = httpd_boolean.strip()
+                    httpd_boolean = httpd_boolean.strip().replace("\n", "")
                     ret = subprocess.run("setsebool -P " + httpd_boolean + " off", capture_output=True, shell=True)
                     setsebool_output = ret.stdout.decode()
                     print(setsebool_output)
@@ -1189,7 +1204,7 @@ def remedy_check():
 
 if __name__ == '__main__':
     remedy = remedy_check()
-    prereq_check()
+    prereq_check() # Includes Section 1
 
     # Goal: Determine web server configuration dir
     webSerDir = r'/etc/apache2'
@@ -1203,18 +1218,19 @@ if __name__ == '__main__':
     with open(apacheConfFile) as f:
         apacheConfContent = f.read()
 
-    modCheck, modules = section2Audit()
-    section2Analyze(modCheck, modules)
+    # modCheck, modules = section2Audit()
 
-    section3Audit()
+    # section2Analyze(modCheck, modules)
 
-    section4Audit()
+    # section3Audit()
 
-    section10()
+    # section4Audit()
 
-    section11()
+    # section10()
 
-    section12()
+    # section11()
+
+    # section12()
 
     # Reload apache2 server if remedy were automatically ran
     if remedy:
