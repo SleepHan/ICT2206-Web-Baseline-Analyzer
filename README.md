@@ -50,7 +50,7 @@ python3 Baseline-Analyzer.py
 python3 Baseline-Analyzer.py -r
 ```
 
-4. To choose a section to cover, simply enter the number required (i.e Section 1 requires the number `1`). This will help save time if other sections have already been covered.
+4. To choose a section to cover, simply enter the number required (i.e Section 1 requires the number 1). This reduces complexity and helps users to focus on one section at a time, instead of going through all 12 sections at once and getting lost in the process.
 
 ## Tips
 
