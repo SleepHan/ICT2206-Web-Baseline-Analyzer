@@ -7,7 +7,7 @@ import sys
 '''
 Section 10: Request Limits
 '''
-def section10(apacheConfFile, apacheConfContent):
+def section10(apacheConfContent):
     print("### Start of Section 10 ###\n")
     search_reg_exp = [r"^512$", r"^100$", r"^1024$", r"^102400$"]
     expected_values = ["512", "100", "1024", "102400"]

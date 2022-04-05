@@ -1261,7 +1261,7 @@ if __name__ == '__main__':
             continue
         elif section == 10:
             # section10()
-            apacheConfContent = section1012.section10(apacheConfFile, apacheConfContent)
+            apacheConfContent = section1012.section10(apacheConfContent)
         elif section == 11:
             # section11()
             section1012.section11(remedy)
