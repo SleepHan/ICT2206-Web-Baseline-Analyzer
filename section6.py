@@ -8,7 +8,7 @@ import subprocess
 '''
 Will either run or print the command given based on the remedy flag
 '''
-def commandRun(command):
+def commandRun(command, remedy):
     if remedy:
         os.system(command)
     else:
@@ -126,7 +126,7 @@ def checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatSt
 '''
 Section 6: Operations - Logging, Monitoring and Maintenance
 '''
-def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict):
+def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy):
     print("### Start of Section 6 ###\n")
     apacheConfContentSplit = apacheConfContent.split('\n')
     logLevel = False
@@ -425,7 +425,7 @@ def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict):
 
         # Enable module
         if installed:
-            commandRun('a2enmod security2')
+            commandRun('a2enmod security2', remedy)
     else:
         # Check if mod security configuration file is set
         if not os.path.isfile('/etc/modsecurity/modsecurity.conf'):

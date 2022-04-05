@@ -1803,7 +1803,7 @@ if __name__ == '__main__':
             continue
         elif section == 6:
             # section6Audit()
-            apacheConfContent = section6.section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict)
+            apacheConfContent = section6.section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
         elif section == 7:
             continue
         elif section == 8:
