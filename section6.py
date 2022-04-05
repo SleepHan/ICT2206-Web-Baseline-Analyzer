@@ -115,7 +115,6 @@ def checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatSt
             changed = True
 
         if changed:
-            print('\n'.join(dirSplit))
             confChanges.append(((dirIndexes[0] + 1, dirIndexes[1]), '\n'.join(dirSplit)))
 
     if len(confChanges):
@@ -139,6 +138,7 @@ def section6Audit():
     print('1. Logrotate')
     print('2. Piped Logging (Rotatelogs)')
     logRotateType = input('Choose logging method (Default 1): ')
+    print()
 
     # 6.1 Ensure Error Log Filename and Severity Level are Configured Correctly
     # Get LogLevel for main level, ignore the rest (E.g. Found in directives)
@@ -293,10 +293,15 @@ def section6Audit():
     if not customLog:
         print('CustomLog directive not found.')
 
+        if logRotateType == '2':
+            defaultLogFile = '"|bin/rotatelogs -l ${{APACHE_LOG_DIR}}/access.log 86400"'
+        else:
+            defaultLogFile = '${{APACHE_LOG_DIR}}/access.log'
+
         if len(logFormatStrings) == 0:
             print('No LogFormat directives found. Adding directive as explicit string...')
-            print('CustomLog ${{APACHE_LOG_DIR}}/access.log "%h %l %u %t \"%r\" %>s %O \"%{{Referer}}i\" \"%{User-Agent}i\""\n')
-            customLog = 'CustomLog ${{APACHE_LOG_DIR}}/access.log "%h %l %u %t \"%r\" %>s %O \"%{{Referer}}i\" \"%{User-Agent}i\""'
+            print('CustomLog {} "%h %l %u %t \"%r\" %>s %O \"%{{Referer}}i\" \"%{User-Agent}i\""\n'.format(defaultLogFile))
+            customLog = 'CustomLog {} "%h %l %u %t \"%r\" %>s %O \"%{{Referer}}i\" \"%{User-Agent}i\""'.format(defaultLogFile)
         
         elif len(logFormatStrings) > 1:
             print('Choose the log format to use')
@@ -305,25 +310,23 @@ def section6Audit():
             logFormatIndex = input('Selct 1 - {}: '.format(len(logFormatStrings)))
             logFormatName = logFormatStrings[logFormatIndex - 1].split()[-1]
             print('Adding directive with {} nickname\n'.format(logFormatName))
-            customLog = 'CustomLog ${{APACHE_LOG_DIR}}/access.log {}\n'.format(logFormatName)
+            customLog = 'CustomLog {} {}\n'.format(defaultLogFile, logFormatName)
         
         else:
             logFormatName = logFormatStrings[0].split()[-1]
             print('Adding directive with {} nickname\n'.format(logFormatName))
-            customLog = 'CustomLog ${{APACHE_LOG_DIR}}/access.log {}\n'.format(logFormatName)
+            customLog = 'CustomLog {} {}\n'.format(defaultLogFile, logFormatName)
 
         apacheConfContent += customLog
 
-    print('Updating Virtual Host Directives')
+    print('Updating Virtual Host Directives\n')
     pattern = '(\n<VirtualHost[.\s\S]+?<\/VirtualHost>)'
     checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings)
 
     # 6.4 Ensure Log Storage and Rotation is Configured Correctly
-    
 
-    if logRotateType == 2:
-        pass
-    else:
+
+    if logRotateType == '1':
         with open('/etc/logrotate.d/apache2') as f:
             content = f.readlines()
         linesToLookFor = ['missingok', 'notifempty', 'sharedscripts']
@@ -356,24 +359,27 @@ def section6Audit():
             with open('/etc/logrotate.conf', 'w') as f:
                 f.write(''.join (content))
         else:
-            print('Log Rotation configuration all-good')
+            print('Log Rotation configuration all-good\n')
+
+    else:
+        print('Ensure that logs are retained for at least 13 weeks\n')
 
 
     # 6.5 Ensure Applicable Patches are Applied
     # Check if ppa:obdrej/apache2 respository is added
     repo = False
-    print('\nLooking for Apache2 Updates')
+    print('Looking for Apache2 Updates')
     res = os.popen('ls /etc/apt/sources.list.d | grep ondrej-ubuntu-apache2').read()
     
     if not res:
         if remedy:
-            print('Repository not added to apt! Adding repository...')
+            print('Repository not added to apt! Adding repository...\n')
             os.system('apt update >/dev/null 2>&1\nadd-apt-repository ppa:ondrej/apache2 -y >/dev/null 2>&1\napt update >/dev/null 2>&1')
             repo = True
         else:
             print('Repository not added to apt! Unable to update Apache2...')
             print('Run the following commands')
-            print('sudo apt update\nsudo add-apt-repository ppa:ondrej/apache2 -y\nsudo apt update')
+            print('sudo apt update\nsudo add-apt-repository ppa:ondrej/apache2 -y\nsudo apt update\n')
     else:
         repo = True
 
@@ -396,7 +402,7 @@ def section6Audit():
 
     # 6.6 Ensure ModSecurity is Installed and Enabled
     # Check if security2_module is loaded
-    print('\nChecking ModSecurity module')
+    print('Checking ModSecurity module')
     res = os.popen('apache2ctl -M 2>/dev/null | grep security2_module').read()
 
     if not res:
@@ -495,23 +501,31 @@ def section6Audit():
     if res:
         inConfFile = res.split(':', 1)[0]
         inThreshold = res.split('\n')[0].split()[-1].split('=')[1][0]
+    else:
+        inConfFile = inThreshold = None
 
     res = os.popen('find /etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0 -name "*.conf" | xargs egrep -v "^\s*#" | grep "setvar:\'tx.outbound_anomaly_score_threshold="').read()
     if res:
         outConfFile = res.split(':', 1)[0]
         outThreshold = res.split('\n')[0].split()[-1].split('=')[1][0]
+    else:
+        outConfFile = outThreshold = None
 
     res = os.popen('find /etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0 -name "*.conf" | xargs egrep -v "^\s*#" | grep "setvar:\'tx.paranoia_level="').read()
     if res:
         paConfFile = res.split(':', 1)[0]
         paThreshold = res.split('\n')[0].split()[-1].split('=')[1][0]
-
+    else:
+        paConfFile = paThreshold = False
 
     if int(ruleCount.split('\n')[0]) < 325:
         print('OWASP ModSecurity CRS does not seem to be enabled. Please check if CRS was installed properly...')
         check = False
     else:
-        if int(inThreshold) > 5:
+        if inThreshold == None:
+            print('Inbound Anomaly Theshold not found')
+            print('Please check if CRS was installed properly')
+        elif int(inThreshold) > 5:
             print('Inbound Anomaly Threshold found to be more than 5')
             print('Source File: {}'.format(inConfFile))
             print('Recommended level: 5 or less')
@@ -527,7 +541,10 @@ def section6Audit():
                     f.write(''.join(content))
             check = False
         
-        if int(outThreshold) > 4:
+        if outThreshold == None:
+            print('Outbound Anomaly Threshold not found')
+            print('Please check if CRS was installed properly')
+        elif int(outThreshold) > 4:
             print('Outbound Anomaly Threshold found to be more than 4')
             print('Source File: {}'.format(outConfFile))
             print('Recommended level: 4 or less')
@@ -543,7 +560,10 @@ def section6Audit():
                     f.write(''.join(content))
             check = False
 
-        if int(paThreshold) < 1:
+        if paThreshold == None:
+            print('Paranoia Level not found')
+            print('Please check if CRS was installed properly')
+        elif int(paThreshold) < 1:
             print('Paranoia found to be less than 1')
             print('Source File: {}'.format(paConfFile))
             print('Recommended level: 1 or more')
