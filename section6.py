@@ -8,7 +8,7 @@ import subprocess
 '''
 Will either run or print the command given based on the remedy flag
 '''
-def commandRun(command):
+def commandRun(command, remedy):
     if remedy:
         os.system(command)
     else:
@@ -17,7 +17,6 @@ def commandRun(command):
 
 
 '''
-Section 4: Apache Access Control
 Updates the configuration file content
 '''
 def updateConf(confChanges, confContent):
@@ -37,8 +36,7 @@ def updateConf(confChanges, confContent):
     return ''.join(newContent)
 
 
-def checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings):
-    global apacheConfContent
+def checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings, apacheConfContent):
     content = apacheConfContent
     res = re.finditer(pattern, content)
 
@@ -121,13 +119,14 @@ def checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatSt
         content = updateConf(confChanges, content)
         apacheConfContent = content
 
+    return apacheConfContent
+
 
 '''
 Section 6: Operations - Logging, Monitoring and Maintenance
 '''
-def section6Audit():
+def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy):
     print("### Start of Section 6 ###\n")
-    global apacheConfContent
     apacheConfContentSplit = apacheConfContent.split('\n')
     logLevel = False
     errorLogFile = errorLogFaci = customLog = ''
@@ -318,14 +317,13 @@ def section6Audit():
             customLog = 'CustomLog {} {}\n'.format(defaultLogFile, logFormatName)
 
         apacheConfContent += customLog
+        print(customLog)
 
     print('Updating Virtual Host Directives\n')
     pattern = '(\n<VirtualHost[.\s\S]+?<\/VirtualHost>)'
-    checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings)
+    apacheConfContent = checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings, apacheConfContent)
 
     # 6.4 Ensure Log Storage and Rotation is Configured Correctly
-
-
     if logRotateType == '1':
         with open('/etc/logrotate.d/apache2') as f:
             content = f.readlines()
@@ -420,13 +418,13 @@ def section6Audit():
                 installed = True
             else:
                 print('ModSecurity module not installed! Unable to enable module...')
-                print('Run command: apt-get install libapache2-mod-security2 -y')
+                print('Run command: apt-get install libapache2-mod-security2 -y\n')
         else:
             installed = True
 
         # Enable module
         if installed:
-            commandRun('a2enmod security2')
+            commandRun('a2enmod security2', remedy)
     else:
         # Check if mod security configuration file is set
         if not os.path.isfile('/etc/modsecurity/modsecurity.conf'):
@@ -443,11 +441,15 @@ def section6Audit():
     # 6.7 Ensure OWASP ModSecurity Core Rule Set is Installed and Enabled
     # Check if OWASP ModSecurity CRS is installed
     print('Checking OWASP ModSecurity CRS Status')
-    res = os.popen('ls /etc/apache2/modsecurity.d | grep owasp-modsecurity-crs-*').read()
+    if os.path.isdir('/etc/apache2/modsecurity.d'):
+        res = os.popen('ls /etc/apache2/modsecurity.d | grep owasp-modsecurity-crs-*').read()
+    else:
+        res = False
+        
+    running = False
 
      # Installing
     if not res:
-        
         commandLine = ('cd {}\n'.format(webSerDir) + 
                         'mkdir modsecurity.d >/dev/null 2>&1\n' +
                         'cd modsecurity.d\n' +
@@ -476,6 +478,7 @@ def section6Audit():
                 f.write(newContent)
 
             os.system('service apache2 reload')
+            running = True
         else:
             print('OWASP ModSecurity CRS not installed')
             print('Run these commands to install/download OWASP ModSecurity CRS')
@@ -486,210 +489,105 @@ def section6Audit():
             print('Include modsecurity.d/owasp-modsecurity-crs-3.2.0//rules/*.conf')
 
             print('\nservice apache2 reload')
-
-    owaspFilePath = '/etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0'
-    if not os.path.isfile('{}/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf'.format(owaspFilePath)):
-        os.system('mv {}/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.example {}/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf'.format(owaspFilePath, owaspFilePath))
-
-    if not os.path.isfile('{}/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf'.format(owaspFilePath)):
-        os.system('mv {}/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf.example {}/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf'.format(owaspFilePath, owaspFilePath))
-
-    # Check the threshold levels are of the appropriate levels
-    check = True
-    ruleCount = os.popen("find /etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0 -name '*.conf' | xargs grep '^SecRule ' | wc -l").read()
-    res = os.popen('find /etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0 -name "*.conf" | xargs egrep -v "^\s*#" | grep "setvar:\'tx.inbound_anomaly_score_threshold="').read()
-    if res:
-        inConfFile = res.split(':', 1)[0]
-        inThreshold = res.split('\n')[0].split()[-1].split('=')[1][0]
     else:
-        inConfFile = inThreshold = None
+        running = True
 
-    res = os.popen('find /etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0 -name "*.conf" | xargs egrep -v "^\s*#" | grep "setvar:\'tx.outbound_anomaly_score_threshold="').read()
-    if res:
-        outConfFile = res.split(':', 1)[0]
-        outThreshold = res.split('\n')[0].split()[-1].split('=')[1][0]
-    else:
-        outConfFile = outThreshold = None
+    if running == True:
+        owaspFilePath = '/etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0'
+        if not os.path.isfile('{}/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf'.format(owaspFilePath)):
+            os.system('mv {}/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.example {}/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf'.format(owaspFilePath, owaspFilePath))
 
-    res = os.popen('find /etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0 -name "*.conf" | xargs egrep -v "^\s*#" | grep "setvar:\'tx.paranoia_level="').read()
-    if res:
-        paConfFile = res.split(':', 1)[0]
-        paThreshold = res.split('\n')[0].split()[-1].split('=')[1][0]
-    else:
-        paConfFile = paThreshold = False
+        if not os.path.isfile('{}/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf'.format(owaspFilePath)):
+            os.system('mv {}/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf.example {}/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf'.format(owaspFilePath, owaspFilePath))
 
-    if int(ruleCount.split('\n')[0]) < 325:
-        print('OWASP ModSecurity CRS does not seem to be enabled. Please check if CRS was installed properly...')
-        check = False
-    else:
-        if inThreshold == None:
-            print('Inbound Anomaly Theshold not found')
-            print('Please check if CRS was installed properly')
-        elif int(inThreshold) > 5:
-            print('Inbound Anomaly Threshold found to be more than 5')
-            print('Source File: {}'.format(inConfFile))
-            print('Recommended level: 5 or less')
-            if remedy:
-                with open(inConfFile) as f:
-                    content = f.readlines()
+        # Check the threshold levels are of the appropriate levels
+        check = True
+        ruleCount = os.popen("find /etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0 -name '*.conf' | xargs grep '^SecRule ' | wc -l").read()
+        res = os.popen('find /etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0 -name "*.conf" | xargs egrep -v "^\s*#" | grep "setvar:\'tx.inbound_anomaly_score_threshold="').read()
+        if res:
+            inConfFile = res.split(':', 1)[0]
+            inThreshold = res.split('\n')[0].split()[-1].split('=')[1][0]
+        else:
+            inConfFile = inThreshold = None
 
-                for index in range(len(content)):
-                    if 'tx.inbound_anomaly_score_threshold' in content[index]:
-                        content[index] = content[index][:-4] + '5\'"'
-                
-                with open(inConfFile, 'w') as f:
-                    f.write(''.join(content))
+        res = os.popen('find /etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0 -name "*.conf" | xargs egrep -v "^\s*#" | grep "setvar:\'tx.outbound_anomaly_score_threshold="').read()
+        if res:
+            outConfFile = res.split(':', 1)[0]
+            outThreshold = res.split('\n')[0].split()[-1].split('=')[1][0]
+        else:
+            outConfFile = outThreshold = None
+
+        res = os.popen('find /etc/apache2/modsecurity.d/owasp-modsecurity-crs-3.2.0 -name "*.conf" | xargs egrep -v "^\s*#" | grep "setvar:\'tx.paranoia_level="').read()
+        if res:
+            paConfFile = res.split(':', 1)[0]
+            paThreshold = res.split('\n')[0].split()[-1].split('=')[1][0]
+        else:
+            paConfFile = paThreshold = False
+
+        if int(ruleCount.split('\n')[0]) < 325:
+            print('OWASP ModSecurity CRS does not seem to be enabled. Please check if CRS was installed properly...')
             check = False
-        
-        if outThreshold == None:
-            print('Outbound Anomaly Threshold not found')
-            print('Please check if CRS was installed properly')
-        elif int(outThreshold) > 4:
-            print('Outbound Anomaly Threshold found to be more than 4')
-            print('Source File: {}'.format(outConfFile))
-            print('Recommended level: 4 or less')
-            if remedy:
-                with open(outConfFile) as f:
-                    content = f.readlines()
+        else:
+            if inThreshold == None:
+                print('Inbound Anomaly Theshold not found')
+                print('Please check if CRS was installed properly')
+            elif int(inThreshold) > 5:
+                print('Inbound Anomaly Threshold found to be more than 5')
+                print('Source File: {}'.format(inConfFile))
+                print('Recommended level: 5 or less')
+                if remedy:
+                    with open(inConfFile) as f:
+                        content = f.readlines()
 
-                for index in range(len(content)):
-                    if 'tx.inbound_anomaly_score_threshold' in content[index]:
-                        content[index] = content[index][:-4] + '4\'"'
-                
-                with open(outConfFile, 'w') as f:
-                    f.write(''.join(content))
-            check = False
+                    for index in range(len(content)):
+                        if 'tx.inbound_anomaly_score_threshold' in content[index]:
+                            content[index] = content[index][:-4] + '5\'"'
+                    
+                    with open(inConfFile, 'w') as f:
+                        f.write(''.join(content))
+                check = False
+            
+            if outThreshold == None:
+                print('Outbound Anomaly Threshold not found')
+                print('Please check if CRS was installed properly')
+            elif int(outThreshold) > 4:
+                print('Outbound Anomaly Threshold found to be more than 4')
+                print('Source File: {}'.format(outConfFile))
+                print('Recommended level: 4 or less')
+                if remedy:
+                    with open(outConfFile) as f:
+                        content = f.readlines()
 
-        if paThreshold == None:
-            print('Paranoia Level not found')
-            print('Please check if CRS was installed properly')
-        elif int(paThreshold) < 1:
-            print('Paranoia found to be less than 1')
-            print('Source File: {}'.format(paConfFile))
-            print('Recommended level: 1 or more')
-            if remedy:
-                with open(paConfFile) as f:
-                    content = f.readlines()
+                    for index in range(len(content)):
+                        if 'tx.inbound_anomaly_score_threshold' in content[index]:
+                            content[index] = content[index][:-4] + '4\'"'
+                    
+                    with open(outConfFile, 'w') as f:
+                        f.write(''.join(content))
+                check = False
 
-                for index in range(len(content)):
-                    if 'tx.inbound_anomaly_score_threshold' in content[index]:
-                        content[index] = content[index][:-4] + '1\'"'
-                
-                with open(paConfFile, 'w') as f:
-                    f.write(''.join(content))
-            check = False
+            if paThreshold == None:
+                print('Paranoia Level not found')
+                print('Please check if CRS was installed properly')
+            elif int(paThreshold) < 1:
+                print('Paranoia found to be less than 1')
+                print('Source File: {}'.format(paConfFile))
+                print('Recommended level: 1 or more')
+                if remedy:
+                    with open(paConfFile) as f:
+                        content = f.readlines()
 
-    if check:
-        print('Status all-good')
+                    for index in range(len(content)):
+                        if 'tx.inbound_anomaly_score_threshold' in content[index]:
+                            content[index] = content[index][:-4] + '1\'"'
+                    
+                    with open(paConfFile, 'w') as f:
+                        f.write(''.join(content))
+                check = False
+
+        if check:
+            print('Status all-good')
 
     apacheConfContent = '\n'.join(apacheConfContentSplit)
     print("\n### End of Section 6 ###")
-
-
-'''
-Pre-requisites checks:
-
-1. Check if root.
-'''
-def prereq_check():
-    # id -u checks for user id. 0 means root, non-zero means normal user.
-    command = "id -u"
-    ret = subprocess.run(command, capture_output=True, shell=True)
-    user_id = int(ret.stdout.decode())
-
-    if user_id != 0:
-        print("Script requires root permissions to continue...")
-        exit(-1)
-    else:
-        install_apache = ""
-
-        ret = subprocess.run("apachectl", capture_output=True, shell=True)
-        apachectl_error_code = ret.returncode
-
-        # If Apache is not installed.
-        if apachectl_error_code!=1:
-            while not re.match(r"^y$", install_apache) and not re.match(r"^n$", install_apache):
-                install_apache = input("Apache is not installed. Install Apache? (Y/N) ").rstrip().lower()
-                if re.match(r"^y$", install_apache):
-                    print("Installing Apache...\n")
-                    subprocess.run("apt-get install apache2 -y >/dev/null 2>&1", shell=True)
-                    
-                elif re.match(r"^n$", install_apache) :
-                    print("Apache will not be installed.")
-                    print("Script Terminated.")
-                    exit(-1)
-                    
-                else:
-                    continue
-
-        # If Apache is installed, check if Apache is running.
-        else:
-            run_apache = ""
-            
-            ret = subprocess.run("systemctl is-active --quiet apache2 >/dev/null 2>&1", capture_output=True, shell=True)
-            apache2_error_code = ret.returncode
-            
-
-            if apache2_error_code!=0:
-                while not re.match(r"^y$", run_apache) and not re.match(r"^n$", run_apache):
-                    run_apache = input("Apache is not running. Start Apache? (Y/N) ").rstrip().lower()
-                    if re.match(r"^y$", run_apache):
-                        print("Starting Apache...\n")
-                        subprocess.run("service apache2 start", shell=True)
-                        
-                    elif re.match(r"^n$", run_apache) :
-                        print("Apache will not be started.")
-                        print("Script Terminated.")
-                        exit(-1)
-                        
-                    else:
-                        continue
-
-
-'''
-Remedy check: Check if remedy option is enabled (-r).
-'''
-def remedy_check():
-    remedy = False
-    if len(sys.argv) == 2 and re.match(r"^-r$",sys.argv[1]):
-        print("Remedy option enabled.\n")
-        remedy = True
-    return remedy
-
-
-if __name__ == '__main__':
-    prereq_check()
-    remedy = remedy_check()
-
-    # Goal: Determine web server configuration dir
-    webSerDir = r'/etc/apache2'
-    if not os.path.isdir(webSerDir):
-        webSerDir = input('Enter Configuration Folder Location: ')
-    
-    # Get Apache config contents
-    apacheConfFile = '{}/apache2.conf'.format(webSerDir)
-    if not os.path.isfile(apacheConfFile):
-        apacheConfFile = input('Enter Main Configuration File Location: ')
-
-    with open(apacheConfFile) as f:
-        apacheConfContent = f.read()
-
-    # Get Apache Environment Variables
-    envVarPath = '{}/envvars'.format(webSerDir)
-    while not os.path.isfile(envVarPath):
-        envVarPath = input('Enter path to environment variable file: ')
-    
-    envVars = [i.split('export ')[1].split('=') for i in os.popen('cat {} | grep export'.format(envVarPath)).read().split('\n') if i and i[0] != '#']
-
-    varDict = {}
-    for var in envVars:
-        if len(var) == 2:
-            varDict[var[0]] = var[1]
-
-    section6Audit()
-
-    # Reload apache2 server if remedy were automatically ran
-    if remedy:
-        commandRun('service apache2 reload')
-    else:
-        print('Remember to reload apache after applying the changes')
+    return apacheConfContent
