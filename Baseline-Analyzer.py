@@ -2,7 +2,7 @@ import os
 import re
 import sys
 import subprocess
-import section6
+import section6, section1012
 import argparse
 
 
@@ -1260,11 +1260,14 @@ if __name__ == '__main__':
         elif section == 9:
             continue
         elif section == 10:
-            section10()
+            # section10()
+            apacheConfContent = section1012.section10(apacheConfFile, apacheConfContent)
         elif section == 11:
-            section11()
+            # section11()
+            section1012.section11(remedy)
         elif section == 12:
-            section12()
+            # section12()
+            section1012.section12(remedy)
 
     
     # Reload apache2 server if remedy were automatically ran

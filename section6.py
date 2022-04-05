@@ -17,7 +17,6 @@ def commandRun(command, remedy):
 
 
 '''
-Section 4: Apache Access Control
 Updates the configuration file content
 '''
 def updateConf(confChanges, confContent):
