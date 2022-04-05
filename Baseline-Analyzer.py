@@ -1682,7 +1682,7 @@ def prereq_check():
 
 
     if user_id != 0:
-        print("Script requires root permissions to continue...")
+        print("Root required. Please run as root!")
         exit(-1)
     else:
 
