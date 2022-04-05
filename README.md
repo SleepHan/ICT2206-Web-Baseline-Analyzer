@@ -50,12 +50,21 @@ python3 Baseline-Analyzer.py
 python3 Baseline-Analyzer.py -r
 ```
 
-4. To choose a section to cover, simply enter the number required (i.e Section 1 requires the number 1). This reduces complexity and helps users to focus on one section at a time, instead of going through all 12 sections at once and getting lost in the process.
+4. Run the script with the `-e` argument followed by the section numbers to focus on specific sections. This reduces complexity and helps users to focus on one section at a time, instead of going through all 12 sections at once and getting lost in the process.
+```
+python3 Baseline-Analyzer.py -e 3 10
+```
+
+5. Run the script with the `-d` argument followed by the section numbers to exclude specific sections from the audit.
+```
+python3 Baseline-Analyzer.py -d 11
+```
 
 ## Tips
 
 - Always run the script first to identify issues, before running with the `-r` option.
 - SELinux is made for Red Had Linux and other derivatives, and setting it to enforcing mode can cause stability issues. If possible, use AppArmor instead.
+- Do note that the `-e` and `-d` arguments are mutually exclusive (I.e Only one of them should be parsed)
 
 ## Authors
 
