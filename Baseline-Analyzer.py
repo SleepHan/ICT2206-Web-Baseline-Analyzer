@@ -1218,19 +1218,19 @@ if __name__ == '__main__':
     with open(apacheConfFile) as f:
         apacheConfContent = f.read()
 
-    # modCheck, modules = section2Audit()
+    modCheck, modules = section2Audit()
 
-    # section2Analyze(modCheck, modules)
+    section2Analyze(modCheck, modules)
 
-    # section3Audit()
+    section3Audit()
 
-    # section4Audit()
+    section4Audit()
 
-    # section10()
+    section10()
 
-    # section11()
+    section11()
 
-    # section12()
+    section12()
 
     # Reload apache2 server if remedy were automatically ran
     if remedy:
