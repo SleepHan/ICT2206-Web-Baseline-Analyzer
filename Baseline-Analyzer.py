@@ -2,6 +2,8 @@ import os
 import re
 import sys
 import subprocess
+import section6
+import argparse
 
 
 '''
@@ -1744,9 +1746,23 @@ def remedy_check():
 
 
 if __name__ == '__main__':
-    remedy = remedy_check()
+    parser = argparse.ArgumentParser(description='Web Baseline Analyzer')
+    group = parser.add_mutually_exclusive_group()
+    parser.add_argument('-r', action='store_true', help='Run script with this option to automatically perform remedies')
+    group.add_argument('-e', action='extend', nargs='+', type=int, metavar=(1, 2), help='Enter list of sections to perform audit (E.g. 3 5 6)')
+    group.add_argument('-d', action='extend', nargs='+', type=int, metavar=(1, 2), help='Enter list of sections to skip audit (E.g. 3 5 6)')
+
+    args = parser.parse_args()
+    remedy = args.r
+
+    sectionsAudit = {1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12}
+
+    if args.e:
+        sectionsAudit = args.e
+    elif args.d:
+        sectionsAudit -= set(args.d)
+
     prereq_check()
-    section1()
 
     # Goal: Determine web server configuration dir
     webSerDir = r'/etc/apache2'
@@ -1772,22 +1788,36 @@ if __name__ == '__main__':
         if len(var) == 2:
             varDict[var[0]] = var[1]
 
-    modCheck, modules = section2Audit()
 
-    section2Analyze(modCheck, modules)
+    for section in list(sectionsAudit):
+        if section == 1:
+            section1()
+        elif section == 2:
+            modCheck, modules = section2Audit()
+            section2Analyze(modCheck, modules)
+        elif section == 3:
+            section3Audit()
+        elif section == 4:
+            section4Audit()
+        elif section == 5:
+            continue
+        elif section == 6:
+            # section6Audit()
+            apacheConfContent = section6.section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict)
+        elif section == 7:
+            continue
+        elif section == 8:
+            continue
+        elif section == 9:
+            continue
+        elif section == 10:
+            section10()
+        elif section == 11:
+            section11()
+        elif section == 12:
+            section12()
 
-    section3Audit()
-
-    section4Audit()
-
-    section6Audit()
-
-    section10()
-
-    section11()
-
-    section12()
-
+    
     # Reload apache2 server if remedy were automatically ran
     if remedy:
         commandRun('service apache2 reload')

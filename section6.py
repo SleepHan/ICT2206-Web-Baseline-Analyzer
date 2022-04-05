@@ -37,8 +37,7 @@ def updateConf(confChanges, confContent):
     return ''.join(newContent)
 
 
-def checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings):
-    global apacheConfContent
+def checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings, apacheConfContent):
     content = apacheConfContent
     res = re.finditer(pattern, content)
 
@@ -121,13 +120,14 @@ def checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatSt
         content = updateConf(confChanges, content)
         apacheConfContent = content
 
+    return apacheConfContent
+
 
 '''
 Section 6: Operations - Logging, Monitoring and Maintenance
 '''
-def section6Audit():
+def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict):
     print("### Start of Section 6 ###\n")
-    global apacheConfContent
     apacheConfContentSplit = apacheConfContent.split('\n')
     logLevel = False
     errorLogFile = errorLogFaci = customLog = ''
@@ -318,14 +318,13 @@ def section6Audit():
             customLog = 'CustomLog {} {}\n'.format(defaultLogFile, logFormatName)
 
         apacheConfContent += customLog
+        print(customLog)
 
     print('Updating Virtual Host Directives\n')
     pattern = '(\n<VirtualHost[.\s\S]+?<\/VirtualHost>)'
-    checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings)
+    apacheConfContent = checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings, apacheConfContent)
 
     # 6.4 Ensure Log Storage and Rotation is Configured Correctly
-
-
     if logRotateType == '1':
         with open('/etc/logrotate.d/apache2') as f:
             content = f.readlines()
@@ -584,112 +583,4 @@ def section6Audit():
 
     apacheConfContent = '\n'.join(apacheConfContentSplit)
     print("\n### End of Section 6 ###")
-
-
-'''
-Pre-requisites checks:
-
-1. Check if root.
-'''
-def prereq_check():
-    # id -u checks for user id. 0 means root, non-zero means normal user.
-    command = "id -u"
-    ret = subprocess.run(command, capture_output=True, shell=True)
-    user_id = int(ret.stdout.decode())
-
-    if user_id != 0:
-        print("Script requires root permissions to continue...")
-        exit(-1)
-    else:
-        install_apache = ""
-
-        ret = subprocess.run("apachectl", capture_output=True, shell=True)
-        apachectl_error_code = ret.returncode
-
-        # If Apache is not installed.
-        if apachectl_error_code!=1:
-            while not re.match(r"^y$", install_apache) and not re.match(r"^n$", install_apache):
-                install_apache = input("Apache is not installed. Install Apache? (Y/N) ").rstrip().lower()
-                if re.match(r"^y$", install_apache):
-                    print("Installing Apache...\n")
-                    subprocess.run("apt-get install apache2 -y >/dev/null 2>&1", shell=True)
-                    
-                elif re.match(r"^n$", install_apache) :
-                    print("Apache will not be installed.")
-                    print("Script Terminated.")
-                    exit(-1)
-                    
-                else:
-                    continue
-
-        # If Apache is installed, check if Apache is running.
-        else:
-            run_apache = ""
-            
-            ret = subprocess.run("systemctl is-active --quiet apache2 >/dev/null 2>&1", capture_output=True, shell=True)
-            apache2_error_code = ret.returncode
-            
-
-            if apache2_error_code!=0:
-                while not re.match(r"^y$", run_apache) and not re.match(r"^n$", run_apache):
-                    run_apache = input("Apache is not running. Start Apache? (Y/N) ").rstrip().lower()
-                    if re.match(r"^y$", run_apache):
-                        print("Starting Apache...\n")
-                        subprocess.run("service apache2 start", shell=True)
-                        
-                    elif re.match(r"^n$", run_apache) :
-                        print("Apache will not be started.")
-                        print("Script Terminated.")
-                        exit(-1)
-                        
-                    else:
-                        continue
-
-
-'''
-Remedy check: Check if remedy option is enabled (-r).
-'''
-def remedy_check():
-    remedy = False
-    if len(sys.argv) == 2 and re.match(r"^-r$",sys.argv[1]):
-        print("Remedy option enabled.\n")
-        remedy = True
-    return remedy
-
-
-if __name__ == '__main__':
-    prereq_check()
-    remedy = remedy_check()
-
-    # Goal: Determine web server configuration dir
-    webSerDir = r'/etc/apache2'
-    if not os.path.isdir(webSerDir):
-        webSerDir = input('Enter Configuration Folder Location: ')
-    
-    # Get Apache config contents
-    apacheConfFile = '{}/apache2.conf'.format(webSerDir)
-    if not os.path.isfile(apacheConfFile):
-        apacheConfFile = input('Enter Main Configuration File Location: ')
-
-    with open(apacheConfFile) as f:
-        apacheConfContent = f.read()
-
-    # Get Apache Environment Variables
-    envVarPath = '{}/envvars'.format(webSerDir)
-    while not os.path.isfile(envVarPath):
-        envVarPath = input('Enter path to environment variable file: ')
-    
-    envVars = [i.split('export ')[1].split('=') for i in os.popen('cat {} | grep export'.format(envVarPath)).read().split('\n') if i and i[0] != '#']
-
-    varDict = {}
-    for var in envVars:
-        if len(var) == 2:
-            varDict[var[0]] = var[1]
-
-    section6Audit()
-
-    # Reload apache2 server if remedy were automatically ran
-    if remedy:
-        commandRun('service apache2 reload')
-    else:
-        print('Remember to reload apache after applying the changes')
+    return apacheConfContent
