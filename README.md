@@ -18,7 +18,7 @@ Web Baseline Analyzer aims to audit Apache 2.4 servers on Ubuntu 20.04 systems, 
 
 Auditing and remediation will be done based on the CIS Apache HTTP Server 2.4 Benchmark. As the benchmark is based on Red Hat Linux, the tool will use the Ubuntu equivalent of some of the commands found in the benchmark.
 
-Every section in the benchmark will be covered. To reduce complexity, the user can choose which section to cover, instead of going through all sections at once. More details will be covered in the sub-section [Executing program](#executing-program).
+Every section in the benchmark will be covered. To reduce complexity, the user can choose which section to cover or not cover, instead of going through all sections at once. More details will be covered in the sub-section [Executing program](#executing-program).
 
 ## Getting Started
 
