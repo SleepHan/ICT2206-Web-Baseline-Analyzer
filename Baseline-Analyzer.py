@@ -11,7 +11,7 @@ Will either run or print the command given based on the remedy flag
 '''
 def commandRun(command):
     if remedy:
-        os.system(command)
+        os.system('{} >/dev/null 2>&1'.format(command))
     else:
         print('Run Command: {}'.format(command))
         print()
@@ -1182,16 +1182,6 @@ def prereq_check():
                         continue
             else:
                 print("Apache is running.\n")
-
-'''
-Remedy check: Check if remedy option is enabled (-r).
-'''
-def remedy_check():
-    remedy = False
-    if len(sys.argv) == 2 and sys.argv[1] == "-r":
-        print("Remedy option enabled.\n")
-        remedy = True
-    return remedy
 
 
 if __name__ == '__main__':
