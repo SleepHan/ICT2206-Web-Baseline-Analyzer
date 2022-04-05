@@ -58,7 +58,6 @@ def ensure_access_to_os_root_directory(verbose=True):
             flagged_out_table.title = title
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
-            flagged_out_table.min_width = 50
             flagged_out_table.valign = "t"
             for i in check_1_statements:
                 results = re.sub("Options\W(?!None)[A-Za-z+,]*\n", "Options None\n", i)
@@ -106,7 +105,6 @@ def ensure_options_for_web_root_directory_are_restricted(verbose=True):
             flagged_out_table.title = title
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
-            flagged_out_table.min_width = 50
             flagged_out_table.valign = "t"
             for i in check_1_statements:
                 results = re.sub("Options\W(?!None)[A-Za-z+,]*\n", "Options [None|Multiview]\n", i)
@@ -126,7 +124,8 @@ def ensure_options_for_web_root_directory_are_restricted(verbose=True):
 # 5.3 
 def ensure_options_for_other_directories_are_minimized(verbose=True):
     title = "5.3 Ensure options for other directories are minimized"
-    file_location = "/etc/apache2/apache2.conf.test"
+    # file_location = "/etc/apache2/apache2.conf.test"
+    file_location = "/etc/apache2/apache2.conf"
     check_1_bool = False
     check_1_statements =[]
     rule_1 = "Search the Apache configuration files\n(httpd.conf and any included configuration files)\nto find the all Directory elements and\nensure that the Options directives\ndo not enable Includes."
@@ -153,7 +152,6 @@ def ensure_options_for_other_directories_are_minimized(verbose=True):
             flagged_out_table.title = title
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
-            flagged_out_table.min_width = 50
             flagged_out_table.valign = "t"
             for i in check_1_statements:
                 results = re.sub("Options\W(?!None)[A-Za-z+,]*\n", "Options [Multiviews|ExecCGI|FollowSymLinks\n|SymLinksIfOwnerMatch|Includes|IncludesNoExec|Indexes]\n", i)
@@ -172,16 +170,84 @@ def ensure_options_for_other_directories_are_minimized(verbose=True):
        
 # 5.4 (Not sure)
 def ensure_default_html_content_is_removed(verbose=True):
-    pass     
+    pass
+    
 
-# 5.5 (Not Sure)
+# 5.5 
+def ensure_printenv_script_is_removed(verbose=True):
+    title = "5.5 Ensure the Default CGI Content printenv Script is removed"
+    file_location = "/usr/lib/cgi-bin"
+    value = os.listdir(file_location)
+    check_1_bool = True
+    check_1_statements = []
+    rule_1 = "Ensure the printenv CGI is\nnot installed in any configured cgi-bin directory"
+    file_to_flag = "printenv"
+    for i in value:
+        if file_to_flag in i:
+            check_1_bool = False
+            check_1_statements.append(i)
+    if check_1_bool is False: 
+        if verbose:
+            flagged_out_table = PrettyTable()
+            flagged_out_table.title = title
+            flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
+            flagged_out_table.align = "l"
+            flagged_out_table.valign = "t"
+            results = "Run the following Command\n\nrm {}/printenv".format(file_location)
+            for i in check_1_statements:
+                flagged_out_table.add_row([rule_1, file_location , results , i ])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                
+            # for i in check_2_statements: 
+            #     flagged_out_table.add_row([rule_2, file_location, rule_2_solution, i]) 
 
-# 5.6 (Not Sure)
+            print(flagged_out_table)
+    else:
+        if verbose: 
+           print(title + f' (passed)') 
+
+# 5.6 
+def ensure_testcgi_script_is_removed(verbose=True):
+    title = "5.6 Ensure the Default CGI Content test-cgi Script is removed"
+    file_location = "/usr/lib/cgi-bin"
+    value = os.listdir(file_location)
+    check_1_bool = True
+    check_1_statements = []
+    rule_1 = "Ensure the test-cgi is\nnot installed in any configured cgi-bin directory"
+    file_to_flag = "test-cgi"
+    for i in value:
+        if file_to_flag in i:
+            check_1_bool = False
+            check_1_statements.append(i)
+    if check_1_bool is False: 
+        if verbose:
+            flagged_out_table = PrettyTable()
+            flagged_out_table.title = title
+            flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
+            flagged_out_table.align = "l"
+            flagged_out_table.valign = "t"
+            results = "Run the following Command\n\nrm {}/printenv".format(file_location)
+            for i in check_1_statements:
+                flagged_out_table.add_row([rule_1, file_location , results , i ])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                
+            # for i in check_2_statements: 
+            #     flagged_out_table.add_row([rule_2, file_location, rule_2_solution, i]) 
+
+            print(flagged_out_table)
+    else:
+        if verbose: 
+           print(title + f' (passed)') 
 
 # 5.7 
 def ensure_http_request_methods_are_restricted(verbose=True):
     title = "5.7 Ensure HTTP Request Methods are restricted"
-    file_location = "/etc/apache2/apache2.conf.test"
+    # file_location = "/etc/apache2/apache2.conf.test"
+    file_location = "/etc/apache2/apache2.conf"
     check_1_bool = True 
     check_1_statements =[]
     check_2_bool = True 
@@ -224,7 +290,6 @@ Modify the File to Limit HTTP Methods using the LimitExcept\n
             flagged_out_table.title = title
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
-            flagged_out_table.min_width = 50
             flagged_out_table.valign = "t"
             for i in check_1_statements:
                 flagged_out_table.add_row([rule_1, file_location , results , i ])
@@ -244,7 +309,6 @@ Modify the File to Limit HTTP Methods using the LimitExcept\n
             flagged_out_table.title = title
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
-            flagged_out_table.min_width = 50
             flagged_out_table.valign = "t"
             for i in check_2_statements:
                 flagged_out_table.add_row([rule_2, file_location , results , i ])
@@ -265,15 +329,15 @@ Modify the File to Limit HTTP Methods using the LimitExcept\n
 # 5.8
 def ensure_http_trace_method_is_disabled(verbose=True):
     title = "5.8 Enable the HTTP Trace Method is disabled"
-    file_location = "/etc/apache2/apache2.conf.test"
-    check_1_bool = False 
+    # file_location = "/etc/apache2/apache2.conf.test"
+    file_location = "/etc/apache2/apache2.conf"
+    check_1_bool = True 
     rule_1 = "Locate the Apache configuration files\nand included configuration files\nand verify there is a single TraceEnable directive\nconfigured with a value of off."
     regex_pattern_for_root = re.compile("TraceEnable Off")
 
     config_file = open(file_location, 'r+')
     lines = config_file.read()
     config_file.close()
-  
     if not re.findall(regex_pattern_for_root, lines):
         # Check if there is a single require directive with the value of all denied
             check_1_bool = False   
@@ -291,7 +355,6 @@ TraceEnable Off
             flagged_out_table.title = title
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
-            flagged_out_table.min_width = 50
             flagged_out_table.valign = "t"
             flagged_out_table.add_row([rule_1, file_location , results , "Configuration is either not set\nor has TraceEnable On" ])
             flagged_out_table.add_row(["","","",""])
@@ -344,7 +407,6 @@ def ensure_access_to_ht_files_is_restricted(verbose=True):
             flagged_out_table.title = title
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
-            flagged_out_table.min_width = 50
             flagged_out_table.valign = "t"
             for i in check_1_statement:
                 flagged_out_table.add_row([rule_1, file_location , results , i ])
@@ -411,7 +473,6 @@ def ensure_access_to_inappropriate_file_extensions_is_restricted(verbose=True):
             flagged_out_table.title = title
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
-            flagged_out_table.min_width = 50
             flagged_out_table.valign = "t"
             flagged_out_table.add_row([rule_1, file_location , results , "Missing Block all files by\ndefualt rule or it\nis misconfigured" ])
             flagged_out_table.add_row(["","","",""])
@@ -465,7 +526,6 @@ Multiple Listen directives may be\nspecified for each IP address & Port.\n
             flagged_out_table.title = title
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
-            flagged_out_table.min_width = 50
             flagged_out_table.valign = "t"
             if check_1_statement is []: 
                 flagged_out_table.add_row([rule_1, file_location , results , "No Listen Statement could be found" ])
@@ -491,14 +551,16 @@ Multiple Listen directives may be\nspecified for each IP address & Port.\n
             
             
 if __name__ == "__main__":
-    # ensure_access_to_os_root_directory()
-    # ensure_options_for_web_root_directory_are_restricted()
-    # ensure_options_for_other_directories_are_minimized()
-    # ensure_http_request_methods_are_restricted()
-    # ensure_http_trace_method_is_disabled()
-    # ensure_access_to_ht_files_is_restricted()
-    # ensure_access_to_inappropriate_file_extensions_is_restricted()
-    # ensure_ip_address_for_listening_for_requests_are_specified()
+    ensure_access_to_os_root_directory()
+    ensure_options_for_web_root_directory_are_restricted()
+    ensure_options_for_other_directories_are_minimized()
+    ensure_printenv_script_is_removed()
+    ensure_testcgi_script_is_removed
+    ensure_http_request_methods_are_restricted()
+    ensure_http_trace_method_is_disabled()
+    ensure_access_to_ht_files_is_restricted()
+    ensure_access_to_inappropriate_file_extensions_is_restricted()
+    ensure_ip_address_for_listening_for_requests_are_specified()
     
     
     # print(flagged_configurations[0])
