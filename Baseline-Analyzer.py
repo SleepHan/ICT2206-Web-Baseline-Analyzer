@@ -21,18 +21,18 @@ Section 1: Planning and Installation
 def section1():
     print("### Start of Section 1 ###\n")
     ## Section 1.1 Ensure the Pre-Installation Planning Checklist Has Been Implemented
-    print("Ensure the Pre-Installation Planning Checklist in Section 1.1 of the CIS Apache 2.4 Benchmark has been implemented.")
+    print("Ensure the Pre-Installation Planning Checklist in Section 1.1 of the CIS Apache 2.4 Benchmark has been implemented.\n")
     
     ## Section 1.2 Ensure the Server Is Not a Multi-Use System
     ret = subprocess.run("systemctl list-units --all --type=service --no-pager | grep -w active | grep running > active_running_services.txt", capture_output=True, shell=True)
     active_running_output = ret.stdout.decode()
-    print("All active and running services are saved to active_running_services.txt. Disable or uninstall unneeded services.")
+    print("All active and running services are saved to active_running_services.txt. Disable or uninstall unneeded services.\n")
 
     if remedy:
         disable_service = ""
-        while not re.match(r"^y$", disable_service) and not re.match(r"^n$", disable_service):
+        while not disable_service == "y" and not disable_service == "n":
             disable_service = input("Disable service(s)? (Y/N) ").rstrip().lower()
-            if re.match(r"^y$", disable_service):
+            if disable_service == "y":
                 services_to_disable = input("Enter service(s) to disable (separated by comma): ")
                 services_to_disable_list = services_to_disable.split(",")
 
@@ -48,14 +48,14 @@ def section1():
                     if ret3.returncode!=0:
                         print("Failed to disable " + service)
 
-            elif re.match(r"^n$", disable_service) :
+            elif disable_service == "n" :
                 print("No services will be disabled.\n")
                 
             else:
                 continue
 
     ## Section 1.3  Ensure Apache Is Installed From the Appropriate Binaries
-    print("Ensure that Apache is installed with \'apt-get install apache2\', instead of downloading custom Apache binaries.")
+    print("Ensure that Apache is installed with \'apt-get install apache2\', instead of downloading and installing custom Apache binaries.")
 
     print("\n### End of Section 1 ###")
 
@@ -1405,9 +1405,9 @@ def section11():
         # Install and activate SELinux if not installed.
         if not selinux_installed:
             install_selinux = ""
-            while not re.match(r"^y$", install_selinux) and not re.match(r"^n$", install_selinux):
+            while not install_selinux == "y" and not install_selinux == "n":
                 install_selinux = input("Install SELinux? (Y/N) ").rstrip().lower()
-                if re.match(r"^y$", install_selinux):
+                if install_selinux == "y":
                     print("Installing SELinux...\n")
                     subprocess.run("apt-get install selinux-basics selinux-utils policycoreutils -y >/dev/null 2>&1", shell=True)
                     subprocess.run("selinux-activate", shell=True) # Activate SELinux (set to permissive), subject to a reboot.
@@ -1415,7 +1415,7 @@ def section11():
                     print("After reboot, run \'setenforce 1' to temporarily set SELinux to enforcing. Note that this can cause stability issues in Ubuntu.")
                     print("Be warned that running \'selinux-config-enforcing\' will cause Ubuntu to hang on the next reboot\n")
 
-                elif re.match(r"^n$", install_selinux) :
+                elif install_selinux == "n" :
                     print("SELinux will not be installed.\n")
                     
                 else:
@@ -1424,14 +1424,14 @@ def section11():
         # Prompts user to set SELinux to enforcing if mode is permissive, at least until the next reboot.
         if selinux_permissive:
             enforce_selinux = ""
-            while not re.match(r"^y$", enforce_selinux) and not re.match(r"^n$", enforce_selinux):
+            while not enforce_selinux == "y" and not enforce_selinux == "n":
                 enforce_selinux = input("Set SELinux to enforcing? Note that this can cause stability issues in Ubuntu.(Y/N) ").rstrip().lower()
-                if re.match(r"^y$", enforce_selinux):
+                if enforce_selinux == "y":
                     subprocess.run("setenforce 1", shell=True)
                     print("SELinux set to enforcing.")
                     selinux_enforcing = True
 
-                elif re.match(r"^n$", enforce_selinux) :
+                elif enforce_selinux == "n":
                     print("SELinux will not be set to enforcing.\n")
                     
                 else:
@@ -1534,15 +1534,15 @@ def section12():
         if not "Enabled" in apparmor_status_output and remedy:
             print("SELinux is not installed. Proceeding with AppArmor installation...")
             install_apparmor = ""
-            while not re.match(r"^y$", install_apparmor) and not re.match(r"^n$", install_apparmor):
+            while not install_apparmor == "y" and not install_apparmor == "n":
                 install_apparmor = input("AppArmor not installed. Install it? (Y/N) ").rstrip().lower()
-                if re.match(r"^y$", install_apparmor):
+                if install_apparmor == "y":
                     print("Installing AppArmor...")
                     subprocess.run("apt-get update >/dev/null 2>&1 && apt-get install apparmor libapache2-mod-apparmor apparmor-utils snapd -y >/dev/null 2>&1", shell=True)
                     subprocess.run("/etc/init.d/apparmor start", shell=True) 
                     apparmor_installed = True
 
-                elif re.match(r"^n$", install_apparmor):
+                elif install_apparmor == "n":
                     print("AppArmor will not be installed.\n")
                 else:
                     continue
@@ -1567,14 +1567,14 @@ def section12():
                 apparmor_apache2_config_file_download_link = "\"https://raw.githubusercontent.com/gentoo/gentoo-apparmor-profiles/master/usr.sbin.apache2\""    
                 if not os.path.exists(apparmor_apache2_config_file): # If AppArmor Apache2 config file is not found, install AppArmor dependencies
                     download_apparmor_apache2_config_file = ""
-                    while not re.match(r"^y$", download_apparmor_apache2_config_file) and not re.match(r"^n$", download_apparmor_apache2_config_file):
+                    while not download_apparmor_apache2_config_file == "y" and not download_apparmor_apache2_config_file == "n":
                         download_apparmor_apache2_config_file = input("AppArmor config file not found (required for audit). Download it? (Y/N) ").rstrip().lower()
-                        if re.match(r"^y$", download_apparmor_apache2_config_file):
+                        if download_apparmor_apache2_config_file == "y":
                             print("Downloading " + apparmor_apache2_config_file + "...")
                             subprocess.run("wget " + apparmor_apache2_config_file_download_link + " -O \"/etc/apparmor.d/usr.sbin.apache2\" >/dev/null 2>&1", shell=True)
                             subprocess.run("/etc/init.d/apparmor reload", shell=True)
 
-                        elif re.match(r"^n$", download_apparmor_apache2_config_file) :
+                        elif download_apparmor_apache2_config_file == "n":
                             print("Default AppArmor Apache configuration file downloaded.\n")
                         else:
                             continue
@@ -1670,7 +1670,7 @@ def section12():
 Pre-requisites checks:
 
 1. Check if root.
-2. Section 1 of CIS Apache Benchmark.
+2. Check if Apache is installed.
 3. Check if Apache is running.
 
 '''
@@ -1685,9 +1685,6 @@ def prereq_check():
         print("Root required. Please run as root!")
         exit(-1)
     else:
-
-        section1()
-
         install_apache = ""
 
         ret = subprocess.run("apachectl", capture_output=True, shell=True)
@@ -1695,13 +1692,13 @@ def prereq_check():
 
         # If Apache is not installed.
         if apachectl_error_code!=1:
-            while not re.match(r"^y$", install_apache) and not re.match(r"^n$", install_apache):
+            while not install_apache == "y" and not install_apache == "n":
                 install_apache = input("Apache is not installed. Install Apache? (Y/N) ").rstrip().lower()
-                if re.match(r"^y$", install_apache):
+                if install_apache == "y":
                     print("Installing Apache...\n")
                     subprocess.run("apt-get install apache2 -y >/dev/null 2>&1", shell=True)
                     
-                elif re.match(r"^n$", install_apache) :
+                elif install_apache == "n":
                     print("Apache will not be installed.")
                     print("Script Terminated.")
                     exit(-1)
@@ -1711,34 +1708,36 @@ def prereq_check():
 
         # If Apache is installed, check if Apache is running.
         else:
+            print("Apache is installed.")
             run_apache = ""
             
             ret = subprocess.run("systemctl is-active --quiet apache2 >/dev/null 2>&1", capture_output=True, shell=True)
             apache2_error_code = ret.returncode
             
-
+            # If Apache is not running, prompt user to run Apache.
             if apache2_error_code!=0:
-                while not re.match(r"^y$", run_apache) and not re.match(r"^n$", run_apache):
+                while not run_apache == "y" and not run_apache == "n":
                     run_apache = input("Apache is not running. Start Apache? (Y/N) ").rstrip().lower()
-                    if re.match(r"^y$", run_apache):
+                    if run_apache == "y":
                         print("Starting Apache...\n")
                         subprocess.run("service apache2 start", shell=True)
                         
-                    elif re.match(r"^n$", run_apache) :
+                    elif run_apache == "n":
                         print("Apache will not be started.")
                         print("Script Terminated.")
                         exit(-1)
                         
                     else:
                         continue
-
+            else:
+                print("Apache is running.\n")
 
 '''
 Remedy check: Check if remedy option is enabled (-r).
 '''
 def remedy_check():
     remedy = False
-    if len(sys.argv) == 2 and re.match(r"^-r$",sys.argv[1]):
+    if len(sys.argv) == 2 and sys.argv[1] == "-r":
         print("Remedy option enabled.\n")
         remedy = True
     return remedy
@@ -1746,7 +1745,8 @@ def remedy_check():
 
 if __name__ == '__main__':
     remedy = remedy_check()
-    prereq_check() # Includes Section 1
+    prereq_check()
+    section1()
 
     # Goal: Determine web server configuration dir
     webSerDir = r'/etc/apache2'
