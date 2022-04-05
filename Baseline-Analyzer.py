@@ -1272,6 +1272,9 @@ if __name__ == '__main__':
     
     # Reload apache2 server if remedy were automatically ran
     if remedy:
+        with open(apacheConfFile + '.new', 'w') as f:
+            f.write(apacheConfContent)
+        print("\nAll changes are saved to " + apacheConfFile + ".new. To reflect all changes, manually rename this file to apache2.conf.")
         commandRun('service apache2 reload')
     else:
         print('Remember to reload Apache after applying the changes')
