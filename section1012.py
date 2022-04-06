@@ -137,7 +137,7 @@ def section11(remedy):
 
     # If SELinux is not installed, exit Section 11 since the rest of the section will involve SELinux.
     if not selinux_installed:
-        print("SELinux is not installed. If you wish to install SELinux, ensure that AppArmor is not installed and run this command: \'apt-get install selinux-basics selinux-utils policycoreutils -y\'.")
+        print("SELinux is not installed. If you wish to install SELinux, ensure that AppArmor is not installed and run this command: \'apt-get install selinux-basics selinux-utils policycoreutils -y\'.\n")
         print("However, it is recommended to install AppArmor instead of SELinux, because the latter can cause stability issues in Ubuntu.")
         print("\n### End of Section 11 ###")
         return
@@ -272,7 +272,7 @@ def section12(remedy):
                             subprocess.run("/etc/init.d/apparmor reload", shell=True)
 
                         elif download_apparmor_apache2_config_file == "n":
-                            print("Default AppArmor Apache configuration file downloaded.\n")
+                            print("AppArmor Apache Profile will not be downloaded.\n")
                         else:
                             continue
 
