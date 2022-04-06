@@ -27,6 +27,7 @@ Every section in the benchmark will be covered. To reduce complexity, the user c
 - Ubuntu 20.04
 - Apache 2.4
 - Python 3
+- PrettyTable
 
 ### Requirements
 
