@@ -1,7 +1,7 @@
 import os
 import re
 import subprocess
-import section24, section_5, section6, section1012
+import section24, section_5, section6, section78, section1012
 import argparse
 
 '''
@@ -186,22 +186,18 @@ if __name__ == '__main__':
             section_5.section_5_methods()
             print("\n### End of Section 5 ###")
         elif section == 6:
-            # section6Audit()
             apacheConfContent = section6.section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
         elif section == 7:
-            continue
+            section78.fullSect7Audit()
         elif section == 8:
-            continue
+            section78.fullSect8Audit()
         elif section == 9:
             continue
         elif section == 10:
-            # section10()
             apacheConfContent = section1012.section10(apacheConfContent)
         elif section == 11:
-            # section11()
             section1012.section11(remedy)
         elif section == 12:
-            # section12()
             section1012.section12(remedy)
 
     

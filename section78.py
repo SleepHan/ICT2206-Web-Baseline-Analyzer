@@ -449,20 +449,24 @@ def section84():
                 del file[lines]
         print("".join(file))
         print("==============")
-#section7audit()
-#remediate72()
-#section73()
-#section74()
-#section75()
-#section76()
-#section77()
-#SECTION78 IS ALREADY DONE IN 76
-#section79()
-#SECTION710 IS ALREADY DONE IN 74
-#section711() #Enable OCSP Stapling
-#section712() #HTTP Strict Transport
-#SECTION713 IS ALREADY DONE IN 76
-#section81() #Check for ServerTokens set to "Prod"
-#section82() #Check for ServerSignature Off
-#section83() #Comment out Alias icons/ "/var/www/icons/"
-#section84() #Remove all instances of FileETag
+
+def fullSect7Audit():
+    section7audit()
+    remediate72()
+    section73()
+    section74()
+    section75()
+    section76()
+    section77()
+    # SECTION78 IS ALREADY DONE IN 76
+    section79()
+    # SECTION710 IS ALREADY DONE IN 74
+    section711() #Enable OCSP Stapling
+    section712() #HTTP Strict Transport
+    # SECTION713 IS ALREADY DONE IN 76
+
+def fullSect8Audit():
+    section81() #Check for ServerTokens set to "Prod"
+    section82() #Check for ServerSignature Off
+    section83() #Comment out Alias icons/ "/var/www/icons/"
+    section84() #Remove all instances of FileETag
