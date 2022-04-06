@@ -488,6 +488,7 @@ def ensure_access_to_inappropriate_file_extensions_is_restricted(verbose=True):
         if verbose:
             print(title + f' (passed)')
 
+# 5.12 (unsure)
 
 # 5.13 
 def ensure_ip_address_for_listening_for_requests_are_specified(verbose=True):
@@ -547,20 +548,33 @@ Multiple Listen directives may be\nspecified for each IP address & Port.\n
     else:
         if verbose:
             print(title + f' (passed)')
-            
+     
+     
+# Run all section 5 methods 
+def section_5_methods(): 
+    # 5.1
+    ensure_access_to_os_root_directory()
+    # 5.2
+    ensure_options_for_web_root_directory_are_restricted()
+    # 5.3 
+    ensure_options_for_other_directories_are_minimized()
+    # 5.5
+    ensure_printenv_script_is_removed()
+    # 5.6
+    ensure_testcgi_script_is_removed
+    # 5.7
+    ensure_http_request_methods_are_restricted()
+    # 5.8
+    ensure_http_trace_method_is_disabled()
+    # 5.10
+    ensure_access_to_ht_files_is_restricted()
+    # 5.11
+    ensure_access_to_inappropriate_file_extensions_is_restricted()
+    # 5.13
+    ensure_ip_address_for_listening_for_requests_are_specified()
             
             
 if __name__ == "__main__":
-    ensure_access_to_os_root_directory()
-    ensure_options_for_web_root_directory_are_restricted()
-    ensure_options_for_other_directories_are_minimized()
-    ensure_printenv_script_is_removed()
-    ensure_testcgi_script_is_removed
-    ensure_http_request_methods_are_restricted()
-    ensure_http_trace_method_is_disabled()
-    ensure_access_to_ht_files_is_restricted()
-    ensure_access_to_inappropriate_file_extensions_is_restricted()
-    ensure_ip_address_for_listening_for_requests_are_specified()
     
-    
+    section_5_methods()
     # print(flagged_configurations[0])
