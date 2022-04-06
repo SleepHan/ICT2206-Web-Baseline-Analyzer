@@ -1,9 +1,10 @@
 import os
 import re
 import subprocess
-import section24, section_5, section6, section78, section1012
+import section24, section_5_and_9, section6, section78, section1012
 import argparse
 import shutil
+from argparse import RawTextHelpFormatter
 
 '''
 Will either run or print the command given based on the remedy flag
@@ -134,7 +135,9 @@ def prereq_check():
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Web Baseline Analyzer')
+    toolDesc = ('Web Baseline Analyzer.\n' +
+                'This tool is a targeted web server auditing and hardening tool based on the CIS Apache 2.4 Benchmark.')
+    parser = argparse.ArgumentParser(description=toolDesc, formatter_class=RawTextHelpFormatter)
     group = parser.add_mutually_exclusive_group()
     parser.add_argument('-r', action='store_true', help='Run script with this option to automatically perform remedies')
     group.add_argument('-e', action='extend', nargs='+', type=int, metavar=(1, 2), help='Enter list of sections to perform audit (E.g. 3 5 6)')
@@ -186,7 +189,7 @@ if __name__ == '__main__':
             section24.section4Audit(apacheConfFile, webSerDir, remedy)
         elif section == 5:
             print("### Start of Section 5 ###\n")
-            section_5.section_5_methods()
+            section_5_and_9.section_5_methods()
             print("\n### End of Section 5 ###")
         elif section == 6:
             section6.section6Audit(webSerDir, apacheConfFile, varDict, remedy)
@@ -199,7 +202,9 @@ if __name__ == '__main__':
             section78.fullSect8Audit(apacheConfFile, remedy)
             print("\n### End of Section 8 ###")
         elif section == 9:
-            continue
+            print("### Start of Section 9 ###\n")
+            section_5_and_9.section_9_methods()
+            print("\n### End of Section 9 ###")
         elif section == 10:
             section1012.section10(apacheConfFile, remedy)
         elif section == 11:

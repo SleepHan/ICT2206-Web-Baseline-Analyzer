@@ -155,6 +155,7 @@ def section2Analyze(modCheck, modules, remedy):
         print('Authentication and Authorization modules found')
         print('Only enable the necessary modules')
         print(modules[0])
+        print("Run 'a2dismod <Module_Name>' to disable module")
         print()
 
     if not modCheck[1]:
