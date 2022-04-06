@@ -59,10 +59,6 @@ def ensure_access_to_os_root_directory(verbose=True):
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
             flagged_out_table.valign = "t"
-            flagged_out_table.min_width["Solution"]=20
-            flagged_out_table.min_width["Configuration"]=20
-            flagged_out_table.max_width["Solution"]=40
-            flagged_out_table.max_width["Configuration"]=40
             for i in check_1_statements:
                 results = re.sub("Options\W(?!None)[A-Za-z+,]*\n", "Options None\n", i)
                 flagged_out_table.add_row([rule_1, file_location , results , i ])
