@@ -158,7 +158,7 @@ def remediate72():
     #Read website name with common name and modify SSLCertificateFile and SSLCertificateKeyFile
     website_file = open("/etc/apache2/sites-available/"+website, "r")
     website_file_readlines = website_file.readlines()
-    print(len(website_file_readlines))
+
     #Check for existing SSL Directives
     sslcert_found = 0
     sslcertkey_found = 0
@@ -197,6 +197,7 @@ def remediate72():
     f.close()
     website_file.close()
     #Restart HTTPD
+    print("Restarting apache2 service...")
     output = subprocess.run("systemctl restart apache2".split(), capture_output=True, text=True)
 
 def section74():
