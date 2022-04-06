@@ -25,7 +25,6 @@ def section10(apacheConfFile, remedy):
             apacheConfFile = 'conf{}'.format(apacheConfFile)
             updateExist = True
     apacheConfSplit = open(apacheConfFile).read().split('\n')
-    print(apacheConfSplit)
 
     for index in range(len(apacheConfSplit)):
         for i in range(0, 4):

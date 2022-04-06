@@ -159,7 +159,14 @@ def remediate72():
     key = input("Enter your key file name (number): ")
     key = keys_available_list[int(key) - 1]
     #Read website name with common name and modify SSLCertificateFile and SSLCertificateKeyFile
-    website_file = open("/etc/apache2/sites-available/"+website, "r")
+    updateExist = False
+    sitePath = '/etc/apache2/sites-available/{}'.format(website)
+    if not remedy:
+        if os.path.exists('conf{}'.format('/etc/apache2/sites-available/{}'.format(website))):
+            sitePath = 'conf{}'.format('/etc/apache2/sites-available/{}'.format(website))
+            updateExist = True
+            
+    website_file = open(sitePath, "r")
     website_file_readlines = website_file.readlines()
 
     #Check for existing SSL Directives
@@ -193,10 +200,13 @@ def remediate72():
                     website_file_readlines.insert(website_file_readlines.index(i) + 1,
                                                   "\t\tSSLEngine on\n")
     #Write to file
-    subprocess.run("cp /etc/apache2/sites-available/" + website + " /etc/apache2/sites-available/"
-                   + website + ".backup", shell=True)#, text=True, capture_output=True)
-    with open("/etc/apache2/sites-available/" + website, "w") as f:
-        f.write("".join(website_file_readlines))
+    if remedy or updateExist:
+        with open(sitePath, "w") as f:
+            f.write("".join(website_file_readlines))
+    else:
+        pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+        with open('conf{}'.format(sitePath), 'w') as f:
+            f.write("".join(website_file_readlines))
     f.close()
     website_file.close()
     #Restart HTTPD
@@ -208,7 +218,14 @@ def section74():
     sites_available_list = sites_available.stdout.split("\n")
     sites_available_list.pop()
     for sites in sites_available_list:
-        site_open = open("/etc/apache2/sites-available/" + sites, "r")
+        updateExist = False
+        sitePath = '/etc/apache2/sites-available/{}'.format(sites)
+        if not remedy:
+            if os.path.exists('conf{}'.format(sitePath)):
+                sitePath = 'conf{}'.format(sitePath)
+                updateExist = True
+
+        site_open = open(sitePath, "r")
         site_open_lines = site_open.readlines()
         sslprotocol_checked = 0
         for lines in range(len(sites)):
@@ -220,15 +237,28 @@ def section74():
             for lines in range(len(sites)):
                 if site_open_lines[lines].find(":443") != -1:
                     site_open_lines.insert(lines + 2, "\t\tSSLProtocol TLSv1.2 TLSV1.3\n")
-        write_file = open("/etc/apache2/sites-available/" + sites, "w")
-        write_file.write("".join(site_open_lines))
+        
+        if remedy or updateExist:
+            with open(sitePath, 'w') as f:
+                f.write(''.join(site_open_lines))
+        else:
+            pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(sitePath), 'w') as f:
+                f.write(''.join(site_open_lines))
 
 def section75():
     sites_available = subprocess.run("ls -p /etc/apache2/sites-available | grep -v /", shell=True, capture_output=True, text=True)
     sites_available_list = sites_available.stdout.split("\n")
     sites_available_list.pop()
     for sites in sites_available_list:
-        site_open = open("/etc/apache2/sites-available/" + sites, "r")
+        updateExist = False
+        sitePath = '/etc/apache2/sites-available/{}'.format(sites)
+        if not remedy:
+            if os.path.exists('conf{}'.format(sitePath)):
+                sitePath = 'conf{}'.format(sitePath)
+                updateExist = True
+
+        site_open = open(sitePath, "r")
         site_open_lines = site_open.readlines()
         honorcipher = 0
         ciphersuite = 0
@@ -248,15 +278,27 @@ def section75():
                 if site_open_lines[lines].find(":443") != -1:
                     site_open_lines.insert(lines + 2,
                                            "\t\tSSLCipherSuite EECDH:EDH:!NULL:!SSLv2:!RC4:!aNULL:!3DES:!IDEA\n")
-        write_file = open("/etc/apache2/sites-available/" + sites, "w")
-        write_file.write("".join(site_open_lines))
+        if remedy or updateExist:
+            with open(sitePath, 'w') as f:
+                f.write(''.join(site_open_lines))
+        else:
+            pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(sitePath), 'w') as f:
+                f.write(''.join(site_open_lines))
 
 def section76():
     sites_available = subprocess.run("ls -p /etc/apache2/sites-available| grep -v /", shell=True, capture_output=True, text=True)
     sites_available_list = sites_available.stdout.split("\n")
     sites_available_list.pop()
     for sites in sites_available_list:
-        site_open = open("/etc/apache2/sites-available/" + sites, "r")
+        updateExist = False
+        sitePath = '/etc/apache2/sites-available/{}'.format(sites)
+        if not remedy:
+            if os.path.exists('conf{}'.format(sitePath)):
+                sitePath = 'conf{}'.format(sitePath)
+                updateExist = True
+
+        site_open = open(sitePath, "r")
         site_open_lines = site_open.readlines()
         insecure_checked = 0
         for lines in range(len(sites)):
@@ -268,22 +310,39 @@ def section76():
             for lines in range(len(sites)):
                 if site_open_lines[lines].find(":443") != -1:
                     site_open_lines.insert(lines + 2, "\t\tSSLInsecureRenegotiation off\n")
-        write_file = open("/etc/apache2/sites-available/" + sites, "w")
-        write_file.write("".join(site_open_lines))
+        if remedy or updateExist:
+            with open(sitePath, 'w') as f:
+                f.write(''.join(site_open_lines))
+        else:
+            pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(sitePath), 'w') as f:
+                f.write(''.join(site_open_lines))
 
 def section77():
     sites_available = subprocess.run("ls -p /etc/apache2/sites-available| grep -v /", shell=True, capture_output=True, text=True)
     sites_available_list = sites_available.stdout.split("\n")
     sites_available_list.pop()
     for sites in sites_available_list:
-        site_open = open("/etc/apache2/sites-available/" + sites, "r")
+        updateExist = False
+        sitePath = '/etc/apache2/sites-available/{}'.format(sites)
+        if not remedy:
+            if os.path.exists('conf{}'.format(sitePath)):
+                sitePath = 'conf{}'.format(sitePath)
+                updateExist = True
+
+        site_open = open(sitePath, "r")
         site_open_lines = site_open.readlines()
         for lines in range(len(sites)):
             if site_open_lines[lines].find("SSLCompression") != -1:
                 site_open_lines[lines] = "\t\tSSLCompression off\n"
                 break
-        write_file = open("/etc/apache2/sites-available/" + sites, "w")
-        write_file.write("".join(site_open_lines))
+        if remedy or updateExist:
+            with open(sitePath, 'w') as f:
+                f.write(''.join(site_open_lines))
+        else:
+            pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(sitePath), 'w') as f:
+                f.write(''.join(site_open_lines))
 
 def section79():
     all_configs = subprocess.run("find /etc/apache2/ -name '*.conf'", shell=True, capture_output=True, text=True)
@@ -358,7 +417,14 @@ def section711():
     sites_available_list = sites_available.stdout.split("\n")
     sites_available_list.pop()
     for sites in sites_available_list:
-        site_open = open("/etc/apache2/sites-available/" + sites, "r")
+        updateExist = False
+        sitePath = '/etc/apache2/sites-available/{}'.format(sites)
+        if not remedy:
+            if os.path.exists('conf{}'.format(sitePath)):
+                sitePath = 'conf{}'.format(sitePath)
+                updateExist = True
+
+        site_open = open(sitePath, "r")
         site_open_lines = site_open.readlines()
         stapling_check = 0
         staplingcache_check = 0
@@ -377,15 +443,27 @@ def section711():
             for lines in range(len(sites)):
                 if site_open_lines[lines].find(":443") != -1:
                     site_open_lines.insert(lines + 2, "\t\tSSLStaplingCache \"shmcb:logs/ssl_staple_cache(512000)\"\n")
-        write_file = open("/etc/apache2/sites-available/" + sites, "w")
-        write_file.write("".join(site_open_lines))
+        if remedy or updateExist:
+            with open(sitePath, 'w') as f:
+                f.write(''.join(site_open_lines))
+        else:
+            pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(sitePath), 'w') as f:
+                f.write(''.join(site_open_lines))
 
 def section712():
     sites_available = subprocess.run("ls -p /etc/apache2/sites-available| grep -v /", shell=True, capture_output=True, text=True)
     sites_available_list = sites_available.stdout.split("\n")
     sites_available_list.pop()
     for sites in sites_available_list:
-        site_open = open("/etc/apache2/sites-available/" + sites, "r")
+        updateExist = False
+        sitePath = '/etc/apache2/sites-available/{}'.format(sites)
+        if not remedy:
+            if os.path.exists('conf{}'.format(sitePath)):
+                sitePath = 'conf{}'.format(sitePath)
+                updateExist = True
+
+        site_open = open(sitePath, "r")
         site_open_lines = site_open.readlines()
         strict_transport = 0
         for lines in range(len(sites)):
@@ -398,6 +476,13 @@ def section712():
                     site_open_lines.insert(lines + 2, "\t\tHeader always set Strict-Transport-Security \"max-age=600\"\n")
         print("".join(site_open_lines))
         print("==============")
+        if remedy or updateExist:
+            with open(sitePath, 'w') as f:
+                f.write(''.join(site_open_lines))
+        else:
+            pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(sitePath), 'w') as f:
+                f.write(''.join(site_open_lines))
 
 
 def section81(apacheConfFile):
@@ -462,7 +547,7 @@ def section83():
         updateExist = False
         if not remedy:
             if os.path.exists('conf{}'.format(configs)):
-                apacheConfFile = 'conf{}'.format(configs)
+                configs = 'conf{}'.format(configs)
                 updateExist = True
         file = open(configs,"r")
         file = file.readlines()
@@ -489,7 +574,7 @@ def section84():
         updateExist = False
         if not remedy:
             if os.path.exists('conf{}'.format(configs)):
-                apacheConfFile = 'conf{}'.format(configs)
+                configs = 'conf{}'.format(configs)
                 updateExist = True
         file = open(configs,"r")
         file = file.readlines()

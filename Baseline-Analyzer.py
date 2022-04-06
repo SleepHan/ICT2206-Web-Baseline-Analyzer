@@ -3,6 +3,7 @@ import re
 import subprocess
 import section24, section_5, section6, section78, section1012
 import argparse
+import shutil
 
 '''
 Will either run or print the command given based on the remedy flag
@@ -74,7 +75,6 @@ def prereq_check():
     ret = subprocess.run(command, capture_output=True, shell=True)
     user_id = int(ret.stdout.decode())
 
-
     if user_id != 0:
         print("Root required. Please run as root!")
         exit(-1)
@@ -126,6 +126,12 @@ def prereq_check():
             else:
                 print("Apache is running.\n")
 
+    dirs = os.listdir('conf')
+    if len(dirs):
+        print('Config files found in conf folder! Removing files...\n')
+        shutil.rmtree('conf')
+        os.mkdir('conf')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Web Baseline Analyzer')
@@ -154,9 +160,6 @@ if __name__ == '__main__':
     apacheConfFile = '{}/apache2.conf'.format(webSerDir)
     if not os.path.isfile(apacheConfFile):
         apacheConfFile = input('Enter Main Configuration File Location: ')
-
-    with open(apacheConfFile) as f:
-        apacheConfContent = f.read()
 
     # Get Apache Environment Variables
     envVarPath = '{}/envvars'.format(webSerDir)
@@ -188,9 +191,13 @@ if __name__ == '__main__':
         elif section == 6:
             section6.section6Audit(webSerDir, apacheConfFile, varDict, remedy)
         elif section == 7:
-            section78.fullSect7Audit()
+            print("### Start of Section 7 ###\n")
+            section78.fullSect7Audit(remedy)
+            print("\n### End of Section 7 ###")
         elif section == 8:
+            print("### Start of Section 8 ###\n")
             section78.fullSect8Audit(apacheConfFile, remedy)
+            print("\n### End of Section 8 ###")
         elif section == 9:
             continue
         elif section == 10:
@@ -203,9 +210,11 @@ if __name__ == '__main__':
     
     # Reload apache2 server if remedy were automatically ran
     if remedy:
-        with open(apacheConfFile + '.new', 'w') as f:
-            f.write(apacheConfContent)
-        print("\nAll changes are saved to " + apacheConfFile + ".new. To reflect all changes, manually rename this file to apache2.conf.")
+        print('Reloading apache2 to apply changes')
         commandRun('service apache2 reload')
     else:
+        dirs = os.listdir('conf')
+        if len(dirs):
+            print('Updated config files can be found in the conf folder')
+            print('Replace the originals with these to apply changes')
         print('Remember to reload Apache after applying the changes')
