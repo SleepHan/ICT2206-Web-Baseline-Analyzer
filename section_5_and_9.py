@@ -1,3 +1,4 @@
+from nis import match
 import re
 import os
 import subprocess
@@ -59,6 +60,10 @@ def ensure_access_to_os_root_directory(verbose=True):
             flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
             flagged_out_table.align = "l"
             flagged_out_table.valign = "t"
+            flagged_out_table.min_width["Solution"]=20
+            flagged_out_table.min_width["Configuration"]=20
+            flagged_out_table.max_width["Solution"]=40
+            flagged_out_table.max_width["Configuration"]=40
             for i in check_1_statements:
                 results = re.sub("Options\W(?!None)[A-Za-z+,]*\n", "Options None\n", i)
                 flagged_out_table.add_row([rule_1, file_location , results , i ])
@@ -549,7 +554,215 @@ Multiple Listen directives may be\nspecified for each IP address & Port.\n
         if verbose:
             print(title + f' (passed)')
      
-     
+# 9.1 
+def ensure_the_timeout_is_set_to_10_or_less(verbose=True): 
+    title = "9.1 Ensure the Timeout is set to 10 or less"
+    file_location = "/etc/apache2/apache2.conf"
+    timeout_found = False
+    check_1_bool = False
+    check_1_statements = []
+    rule_1 = "Verify that the Timeout directive is specified in the Apache\nconfiguration files to have a value of 10 seconds or shorter."
+    regex_pattern_for_root = re.compile(".*Timeout\s.*")
+    config_file = open(file_location, 'r+')
+    lines = config_file.read()
+    config_file.close()
+    
+    # If they have listen
+    for matches in re.findall(regex_pattern_for_root, lines):
+        para_check = matches[0:7]
+        if "Timeout" == para_check:
+            timeout_found = True
+            if int(matches.split()[1]) > 10: 
+                check_1_bool = False
+                check_1_statements.append(matches) 
+            # Contains Timeout 
+    
+    if timeout_found is False: 
+        check_1_bool = False
+        check_1_statements.append("No Timeout Definition Found.")
+        
+    if check_1_bool is False: 
+        if verbose:
+            flagged_out_table = PrettyTable()
+            flagged_out_table.title = title
+            flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
+            flagged_out_table.align = "l"
+            flagged_out_table.valign = "t"
+            results = "Ensure that the Timeout value is set to 10 or below\n\nTimeout 10"
+            for i in check_1_statements:
+                flagged_out_table.add_row([rule_1, file_location , results , i ])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                
+            # for i in check_2_statements: 
+            #     flagged_out_table.add_row([rule_2, file_location, rule_2_solution, i]) 
+
+            print(flagged_out_table)
+    else:
+        if verbose: 
+           print(title + f' (passed)') 
+
+
+# 9.2 
+def ensure_the_keepalive_is_enabled(verbose=True): 
+    title = "9.1 Ensure KeepAlive is Enabled"
+    file_location = "/etc/apache2/apache2.conf"
+    keepalive_found = False
+    check_1_bool = False
+    check_1_statements = []
+    rule_1 = "Verify that the KeepAlive directive is on or not present (On by default)"
+    regex_pattern_for_root = re.compile(".*KeepAlive\s.*")
+    config_file = open(file_location, 'r+')
+    lines = config_file.read()
+    config_file.close()
+    
+    # If they have listen
+    for matches in re.findall(regex_pattern_for_root, lines):
+        para_check = matches[0:9]
+        if "KeepAlive" == para_check:
+            keepalive_found = True
+            if str(matches.split()[1]) == "Off": 
+                check_1_bool = False
+                check_1_statements.append(matches) 
+            elif str(matches.split()[1]) == "On":
+                check_1_bool = True
+            # Contains Timeout 
+    
+    if keepalive_found is False: 
+        check_1_bool = True
+        
+    
+    if check_1_bool is False: 
+        if verbose:
+            flagged_out_table = PrettyTable()
+            flagged_out_table.title = title
+            flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
+            flagged_out_table.align = "l"
+            flagged_out_table.valign = "t"
+            results = "Ensure that that KeepAlive value is set to On\nor removed from the Configuration"
+            for i in check_1_statements:
+                flagged_out_table.add_row([rule_1, file_location , results , i ])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                
+            # for i in check_2_statements: 
+            #     flagged_out_table.add_row([rule_2, file_location, rule_2_solution, i]) 
+
+            print(flagged_out_table)
+    else:
+        if verbose: 
+           print(title + f' (passed)') 
+ 
+
+# 9.3 
+def ensure_max_keep_alive_requests_is_set_to_a_value_of_100_or_greater(verbose=True):
+    title = "9.3 Ensure Max Keep Alive Request is set to > 100"
+    file_location = "/etc/apache2/apache2.conf"
+    keep_alive_request_found = False
+    check_1_bool = False
+    check_1_statements = []
+    rule_1 = "Verify that the MaxKeepAliveRequests directive in the\nApache configuration to have a value of 100 or more.\n(If Directive is not present, it default is 100)"
+    regex_pattern_for_root = re.compile(".*MaxKeepAliveRequests\s.*")
+    config_file = open(file_location, 'r+')
+    lines = config_file.read()
+    config_file.close()
+    
+    # If they have listen
+    for matches in re.findall(regex_pattern_for_root, lines):
+        para_check = matches[0:20]
+        
+        if "MaxKeepAliveRequests" == para_check:
+            keep_alive_request_found = True
+            if int(matches.split()[1]) > 100: 
+                check_1_bool = False
+                check_1_statements.append(matches)
+            
+            else: 
+                check_1_bool = True
+            
+    if keep_alive_request_found is False: 
+        check_1_bool = True
+        
+    
+    if check_1_bool is False: 
+        if verbose:
+            flagged_out_table = PrettyTable()
+            flagged_out_table.title = title
+            flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
+            flagged_out_table.align = "l"
+            flagged_out_table.valign = "t"
+            results = "Ensure that that KeepAlive value is set to "
+            for i in check_1_statements:
+                flagged_out_table.add_row([rule_1, file_location , results , i ])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                
+            # for i in check_2_statements: 
+            #     flagged_out_table.add_row([rule_2, file_location, rule_2_solution, i]) 
+
+            print(flagged_out_table)
+    else:
+        if verbose: 
+           print(title + f' (passed)') 
+
+# 9.4 
+def ensure_the_keep_alive_timeout_is_below_15(verbose=True): 
+    title = "9.4 Ensure KeepAliveTimeout is Set to a Value of 15 or Less"
+    file_location = "/etc/apache2/apache2.conf"
+    timeout_found = False
+    check_1_bool = False
+    check_1_statements = []
+    rule_1 = "Verify that the KeepAliveTimeout directive in the\nApache configuration to have a value of 15 or less.\nIf the directive is not present the default value is 5 seconds."
+    regex_pattern_for_root = re.compile(".*KeepAliveTimeout\s.*")
+    config_file = open(file_location, 'r+')
+    lines = config_file.read()
+    config_file.close()
+    
+    # If they have listen
+    for matches in re.findall(regex_pattern_for_root, lines):
+        para_check = matches[0:16]
+        if "KeepAliveTimeout" == para_check:
+            timeout_found = True
+            if int(matches.split()[1]) > 15: 
+                check_1_bool = False
+                check_1_statements.append(matches) 
+            else: 
+                check_1_bool = True
+                
+            # Contains Timeout 
+    
+    if timeout_found is False: 
+        check_1_bool = True
+        
+    if check_1_bool is False: 
+        if verbose:
+            flagged_out_table = PrettyTable()
+            flagged_out_table.title = title
+            flagged_out_table.field_names = [ "Violated Rule", "Location" ,"Solution", "Configuration",]
+            flagged_out_table.align = "l"
+            flagged_out_table.valign = "t"
+            results = "Ensure that the Timeout value is set to 15 or below\n\nTimeout 15"
+            for i in check_1_statements:
+                flagged_out_table.add_row([rule_1, file_location , results , i ])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                flagged_out_table.add_row(["","","",""])
+                
+            # for i in check_2_statements: 
+            #     flagged_out_table.add_row([rule_2, file_location, rule_2_solution, i]) 
+
+            print(flagged_out_table)
+    else:
+        if verbose: 
+           print(title + f' (passed)') 
+
+# 9.5 
+def ensure_the_timeout_limits_is_set_to_40_or_less(verbose=True):
+    pass
+
 # Run all section 5 methods 
 def section_5_methods(): 
     # 5.1
@@ -573,8 +786,20 @@ def section_5_methods():
     # 5.13
     ensure_ip_address_for_listening_for_requests_are_specified()
             
-            
+# Run all section 9 methods 
+def section_9_methods(): 
+    # 9.1
+    ensure_the_timeout_is_set_to_10_or_less()
+    # 9.2 
+    ensure_the_keepalive_is_enabled()
+    # 9.3
+    ensure_max_keep_alive_requests_is_set_to_a_value_of_100_or_greater()
+    # 9.4
+    ensure_the_keep_alive_timeout_is_below_15()
+    # 9.5 (Unsure)
+    # 9.6 (Unsure)       
 if __name__ == "__main__":
     
     section_5_methods()
+    section_9_methods()
     # print(flagged_configurations[0])
