@@ -4,11 +4,12 @@ import subprocess
 import distro
 from getpass import getpass
 import requests
+import OpenSSL.crypto
 
 def getPlatform():
     return distro.name()
 
-def section7audit():
+def section71():
     #Check for 7.1 (TLDR: is mod_ssl installed?)
     ssl_module_enabled = subprocess.run("/usr/sbin/apache2ctl -M".split(), capture_output=True, text=True)
     if str(ssl_module_enabled).find("ssl_module") != -1:
@@ -23,8 +24,35 @@ def section7audit():
             print("Installing mod_ssl...")
             subprocess.run("yum install mod_ssl".split(), capture_output=True, text=True)
         #Enable mod_ssl
+        print("Enabling mod_ssl for apache2")
         output = subprocess.run("/usr/sbin/a2enmod ssl".split(), capture_output=True, text=True)
         output = subprocess.run("systemctl restart apache2".split(), capture_output=True, text=True)
+def section72_check():
+    print("The following certificates have issues and need to be reissued!")
+    sites_available = subprocess.run("ls -p /etc/apache2/sites-available | grep -v /", shell=True, capture_output=True, text=True)
+    sites_available_list = sites_available.stdout.split("\n")
+    sites_available_list.pop()
+    for sites in sites_available_list:
+        file = open("/etc/apache2/sites-available/"+sites)
+        file_lines = file.readlines()
+        for file in range(len(file_lines)):
+            if (file_lines[file].find("SSLCertificateFile") != -1) and (file_lines[file].find(".crt") != -1):
+                cert = OpenSSL.crypto.load_certificate(
+                    OpenSSL.crypto.FILETYPE_PEM,
+                    open(file_lines[file].split()[1]).read()
+                )
+                if (cert.has_expired() ):
+                    expired_date = cert.get_notAfter().decode()
+                    print(file_lines[file].split()[1] + " has expired since " + expired_date[0:4] + "-" + expired_date[4:6] +
+                          "-" + expired_date[6:8] + ("(YYYY-MM-DD)"))
+                elif (cert.get_signature_algorithm().decode().find("sha1") != -1) or\
+                        (cert.get_signature_algorithm().decode().find("md5") != -1):
+                    print(file_lines[file].split()[1] + " has a WEAK signature algorithm which is "
+                          + cert.get_signature_algorithm().decode().split("with")[0])
+                else:
+                    print(file_lines[file].split()[1] + " is OK")
+
+def section72_createcert():
     #Check for 7.2 (TLDR:THEREISNOTLDR THIS IS A PAIN IN THE ASS)
     website_name = input("Enter your common name (e.g. www.example.com): ")
     country = input("Enter your country (2 Letter Code): ")
@@ -449,7 +477,7 @@ def section84():
                 del file[lines]
         print("".join(file))
         print("==============")
-#section7audit()
+section72_check()
 #remediate72()
 #section73()
 #section74()
