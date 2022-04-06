@@ -2,12 +2,13 @@ import os
 import re
 import subprocess
 import sys
+import pathlib
 
 
 '''
 Section 10: Request Limits
 '''
-def section10(apacheConfContent):
+def section10(apacheConfFile, remedy):
     print("### Start of Section 10 ###\n")
     search_reg_exp = [r"^512$", r"^100$", r"^1024$", r"^102400$"]
     expected_values = ["512", "100", "1024", "102400"]
@@ -16,8 +17,14 @@ def section10(apacheConfContent):
     directives = ["LimitRequestLine", "LimitRequestFields", "LimitRequestFieldSize", "LimitRequestBody"]
     found = [False, False, False, False]
     changed = [False, False, False, False]
+    contentChange = True
+    updateExist = False
 
-    apacheConfSplit = apacheConfContent.split('\n')
+    if not remedy:
+        if os.path.exists('conf{}'.format(apacheConfFile)):
+            apacheConfFile = 'conf{}'.format(apacheConfFile)
+            updateExist = True
+    apacheConfSplit = open(apacheConfFile).read().split('\n')
 
     for index in range(len(apacheConfSplit)):
         for i in range(0, 4):
@@ -34,6 +41,7 @@ def section10(apacheConfContent):
                 # Change the original value if it's incorrect.
                 else:
                     changed[i] = True
+                    contentChange = True
                     print("Changed line: " + apacheConfSplit[index].rstrip() + " --> " +
                             directive_lines[i])  # Print all changed lines.
                     apacheConfSplit[index] = (directive_lines[i] + " # Corrected value from " + original_value + " to " +
@@ -43,13 +51,21 @@ def section10(apacheConfContent):
     for j, found_bool in enumerate(found):
         if not found_bool and not changed[j]:
             # If directive doesn't exist in config, write to last line of new config
+            contenChange = True
             apacheConfSplit.append(directive_lines[j])
             print("Added line: " + directive_lines[j])  # Print all added lines.
     apacheConfSplit.append("\n### End of Added Directives for Section 10  of CIS Benchmark ###")
-    apacheConfContent = '\n'.join(apacheConfSplit)
     
+    if contentChange:
+        if remedy or updateExist:
+            with open(apacheConfFile, 'w') as f:
+                f.write('\n'.join(apacheConfSplit))
+        else:
+            pathlib.Path('conf{}'.format(apacheConfFile.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(apacheConfFile), 'w') as f:
+                f.write('\n'.join(apacheConfSplit))
+
     print("\n### End of Section 10 ###")
-    return apacheConfContent
 
 
 '''
