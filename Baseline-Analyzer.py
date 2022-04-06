@@ -2,7 +2,7 @@ import os
 import re
 import sys
 import subprocess
-import section6, section1012
+import section_5, section6, section1012
 import argparse
 
 
@@ -263,7 +263,7 @@ def section3Audit():
         chkList[0] = True
     else:
         print('No Apache user found')
-        print('Ensure there is a User directive present in the {} file'.format(apacheConfFile))
+        print('Ensure there is a User directive present in the {} file\n'.format(apacheConfFile))
     
     # ADD APACHE GROUP (MANUAL FIX) -Done
     res = os.popen('grep -i ^Group {}'.format(apacheConfFile)).read()
@@ -272,7 +272,7 @@ def section3Audit():
         chkList[1] = True
     else:
         print('No Apache group found')
-        print('Ensure there is a Group directive present in the {} file'.format(apacheConfFile))
+        print('Ensure there is a Group directive present in the {} file\n'.format(apacheConfFile))
 
     if chkList[0]:
         if user.startswith('${'):
@@ -402,7 +402,7 @@ def section3Audit():
     # CHANGE LOCK DIRECTORY (MANUAL FIX)
     if docRoot in lockDir:
         print('Lock directory in document root: {}'.format(lockDir))
-        print('Move/Modify directory to one outside of {}'.format(docRoot))
+        print('Move/Modify directory to one outside of {}\n'.format(docRoot))
 
     res = os.popen('find {} -prune \! -user root'.format(lockDir)).read()
 
@@ -1239,7 +1239,9 @@ if __name__ == '__main__':
         elif section == 4:
             section4Audit()
         elif section == 5:
-            continue
+            print("### Start of Section 5 ###\n")
+            section_5.section_5_methods()
+            print("\n### End of Section 5 ###")
         elif section == 6:
             # section6Audit()
             apacheConfContent = section6.section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
