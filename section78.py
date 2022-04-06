@@ -4,6 +4,9 @@ import subprocess
 import distro
 from getpass import getpass
 import requests
+import pathlib
+
+remedy = False
 
 def getPlatform():
     return distro.name()
@@ -396,8 +399,14 @@ def section712():
         print("".join(site_open_lines))
         print("==============")
 
-def section81():
-    site_open = open("/etc/apache2/apache2.conf", "r")
+
+def section81(apacheConfFile):
+    updateExist = False
+    if not remedy:
+        if os.path.exists('conf{}'.format(apacheConfFile)):
+            apacheConfFile = 'conf{}'.format(apacheConfFile)
+            updateExist = True
+    site_open = open(apacheConfFile, "r")
     site_open_lines = site_open.readlines()
     strict_transport = 0
     for lines in range(len(site_open_lines)):
@@ -409,8 +418,22 @@ def section81():
     print("".join(site_open_lines))
     print("==============")
 
-def section82():
-    site_open = open("/etc/apache2/apache2.conf", "r")
+    if remedy or updateExist:
+        with open('{}'.format(apacheConfFile), 'w') as f:
+            f.write(''.join(site_open_lines))
+    else:
+        pathlib.Path('conf{}'.format(apacheConfFile.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+        with open('conf{}'.format(apacheConfFile), 'w') as f:
+            f.write(''.join(site_open_lines))
+
+
+def section82(apacheConfFile):
+    updateExist = False
+    if not remedy:
+        if os.path.exists('conf{}'.format(apacheConfFile)):
+            apacheConfFile = 'conf{}'.format(apacheConfFile)
+            updateExist = True
+    site_open = open(apacheConfFile, "r")
     site_open_lines = site_open.readlines()
     strict_transport = 0
     for lines in range(len(site_open_lines)):
@@ -422,11 +445,25 @@ def section82():
     print("".join(site_open_lines))
     print("==============")
 
+    if remedy or updateExist:
+        with open('{}'.format(apacheConfFile), 'w') as f:
+            f.write(''.join(site_open_lines))
+    else:
+        pathlib.Path('conf{}'.format(apacheConfFile.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+        with open('conf{}'.format(apacheConfFile), 'w') as f:
+            f.write(''.join(site_open_lines))
+
+
 def section83():
     all_configs = subprocess.run("find /etc/apache2/ -name '*.conf'", shell=True, capture_output=True, text=True)
     all_configs = all_configs.stdout.split("\n")
     all_configs.pop()
     for configs in all_configs:
+        updateExist = False
+        if not remedy:
+            if os.path.exists('conf{}'.format(configs)):
+                apacheConfFile = 'conf{}'.format(configs)
+                updateExist = True
         file = open(configs,"r")
         file = file.readlines()
         for lines in range(len(file)):
@@ -435,11 +472,25 @@ def section83():
         print("".join(file))
         print("==============")
 
+        if remedy or updateExist:
+            with open('{}'.format(configs), 'w') as f:
+                f.write(''.join(file))
+        else:
+            pathlib.Path('conf{}'.format(configs.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(configs), 'w') as f:
+                f.write(''.join(file))
+
+
 def section84():
     all_configs = subprocess.run("find /etc/apache2/ -name '*.conf'", shell=True, capture_output=True, text=True)
     all_configs = all_configs.stdout.split("\n")
     all_configs.pop()
     for configs in all_configs:
+        updateExist = False
+        if not remedy:
+            if os.path.exists('conf{}'.format(configs)):
+                apacheConfFile = 'conf{}'.format(configs)
+                updateExist = True
         file = open(configs,"r")
         file = file.readlines()
         for lines in range(len(file)):
@@ -450,7 +501,18 @@ def section84():
         print("".join(file))
         print("==============")
 
-def fullSect7Audit():
+        if remedy or updateExist:
+            with open('{}'.format(configs), 'w') as f:
+                f.write(''.join(file))
+        else:
+            pathlib.Path('conf{}'.format(configs.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(configs), 'w') as f:
+                f.write(''.join(file))
+
+
+def fullSect7Audit(rem):
+    global remedy
+    remedy = rem
     section7audit()
     remediate72()
     section73()
@@ -465,8 +527,11 @@ def fullSect7Audit():
     section712() #HTTP Strict Transport
     # SECTION713 IS ALREADY DONE IN 76
 
-def fullSect8Audit():
-    section81() #Check for ServerTokens set to "Prod"
-    section82() #Check for ServerSignature Off
+
+def fullSect8Audit(apacheConfFile, rem):
+    global remedy
+    remedy = rem
+    section81(apacheConfFile) #Check for ServerTokens set to "Prod"
+    section82(apacheConfFile) #Check for ServerSignature Off
     section83() #Comment out Alias icons/ "/var/www/icons/"
     section84() #Remove all instances of FileETag

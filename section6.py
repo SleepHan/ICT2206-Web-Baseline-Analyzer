@@ -130,6 +130,11 @@ Section 6: Operations - Logging, Monitoring and Maintenance
 '''
 def section6Audit(webSerDir, apacheConfFile, varDict, remedy):
     print("### Start of Section 6 ###\n")
+    updateExist = False
+    if not remedy:
+        if os.path.exists('conf{}'.format(apacheConfFile)):
+            apacheConfFile = 'conf{}'.format(apacheConfFile)
+            updateExist = True
     apacheConfContentSplit = open(apacheConfFile).read().split('\n')
     logLevel = False
     contentChange = False
@@ -616,7 +621,7 @@ def section6Audit(webSerDir, apacheConfFile, varDict, remedy):
     apacheConfContent = '\n'.join(apacheConfContentSplit)
 
     if contentChange:
-        if remedy:
+        if remedy or updateExist:
             with open(apacheConfFile, 'w') as f:
                 f.write(apacheConfContent)
         else:

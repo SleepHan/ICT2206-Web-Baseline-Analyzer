@@ -190,11 +190,11 @@ if __name__ == '__main__':
         elif section == 7:
             section78.fullSect7Audit()
         elif section == 8:
-            section78.fullSect8Audit()
+            section78.fullSect8Audit(apacheConfFile, remedy)
         elif section == 9:
             continue
         elif section == 10:
-            apacheConfContent = section1012.section10(apacheConfContent)
+            section1012.section10(apacheConfFile, remedy)
         elif section == 11:
             section1012.section11(remedy)
         elif section == 12:

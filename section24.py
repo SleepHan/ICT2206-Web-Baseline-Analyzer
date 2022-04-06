@@ -653,11 +653,13 @@ def section4Audit(apacheConfFile, webSerDir, remedy):
     print("### Start of Section 4 ###\n")
     confPaths = [apacheConfFile]
     confPaths.extend(os.popen('ls {}/sites-enabled/*.conf'.format(webSerDir)).read().split('\n')[:-1])
+    updateExist = False
     
     for confFile in confPaths:
         if not remedy:
             if os.path.exists('conf{}'.format(confFile)):
                 confFile = 'conf{}'.format(confFile)
+                updateExist = True
         
         with open(confFile) as f:
             content = f.read()
@@ -700,11 +702,11 @@ def section4Audit(apacheConfFile, webSerDir, remedy):
         content = rmAllowOverrideList(content)
         
         if confUpdate:
-            if remedy:
+            if remedy or updateExist:
                 with open('{}'.format(confFile), 'w') as f:
                     f.write(content)
             else:
-                pathlib.Path('conf{}'.format(apacheConfFile.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+                pathlib.Path('conf{}'.format(confFile.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
                 with open('conf{}'.format(confFile), 'w') as f:
                     f.write(content)
 
