@@ -1,7 +1,71 @@
 import os
 import re
+import sys
+import subprocess
+import section_5, section6, section1012
+import argparse
 
-# Separates modules to statically or dynamically loaded
+
+'''
+Will either run or print the command given based on the remedy flag
+'''
+def commandRun(command):
+    if remedy:
+        os.system('{} >/dev/null 2>&1'.format(command))
+    else:
+        print('Run Command: {}'.format(command))
+        print()
+
+
+'''
+Section 1: Planning and Installation
+'''
+def section1():
+    print("### Start of Section 1 ###\n")
+    ## Section 1.1 Ensure the Pre-Installation Planning Checklist Has Been Implemented
+    print("Ensure the Pre-Installation Planning Checklist in Section 1.1 of the CIS Apache 2.4 Benchmark has been implemented.\n")
+    
+    ## Section 1.2 Ensure the Server Is Not a Multi-Use System
+    ret = subprocess.run("systemctl list-units --all --type=service --no-pager | grep -w active | grep running > active_running_services.txt", capture_output=True, shell=True)
+    active_running_output = ret.stdout.decode()
+    print("All active and running services are saved to active_running_services.txt. Disable or uninstall unneeded services.\n")
+
+    if remedy:
+        disable_service = ""
+        while not disable_service == "y" and not disable_service == "n":
+            disable_service = input("Disable service(s)? (Y/N) ").rstrip().lower()
+            if disable_service == "y":
+                services_to_disable = input("Enter service(s) to disable (separated by comma): ")
+                services_to_disable_list = services_to_disable.split(",")
+
+                for service in services_to_disable_list:
+                    service = service.strip().replace("\n", "")
+
+                    ret2= subprocess.run("systemctl stop " + service, capture_output=True, shell=True)
+                    ret3 = subprocess.run("systemctl disable " + service, capture_output=True, shell=True)
+
+                    if ret2.returncode!=0:
+                        print("Failed to stop " + service)
+                    
+                    if ret3.returncode!=0:
+                        print("Failed to disable " + service)
+
+            elif disable_service == "n" :
+                print("No services will be disabled.\n")
+                
+            else:
+                continue
+
+    ## Section 1.3  Ensure Apache Is Installed From the Appropriate Binaries
+    print("Ensure that Apache is installed with \'apt-get install apache2\', instead of downloading and installing custom Apache binaries.")
+
+    print("\n### End of Section 1 ###")
+
+
+'''
+Section 2: Minimize Apache Modules
+Separates modules to statically or dynamically loaded
+'''
 def filterMods(modList):
     staticMods = []
     dynamicMods = []
@@ -21,16 +85,10 @@ def filterMods(modList):
     return staticMods, dynamicMods
 
 
-# Will either run command or print
-def commandRun(command):
-    if runFix:
-        os.system(command)
-    else:
-        print(command)
-        print()
-
-
-# Gives the appropriate fix for statically or dynamically loaded modules
+'''
+Section 2: Minimize Apache Modules
+Gives the appropriate fix for statically or dynamically loaded modules
+'''
 def modDisable(modList):
     staticMod, dynamicMod = filterMods(modList)
     if len(staticMod):
@@ -64,8 +122,11 @@ def modDisable(modList):
         commandRun(disCom)
 
 
-# 2. Minimize Apache Modules (Audit)
+'''
+Section 2: Minimize Apache Modules (Audit)
+'''
 def section2Audit():
+    print("### Start of Section 2 ###\n")
     modules = {}
     modCheck = [False, False, False, False, False, False, False, False, False]
 
@@ -134,7 +195,9 @@ def section2Audit():
     return modCheck, modules
 
 
-# 2. Minimize Apache Modules (Analyze) - Left 2.1
+'''
+Section 2: Minimize Apache Modules (Analyze)
+'''
 def section2Analyze(modCheck, modules):
     modDisList = []
     if modCheck[0]:
@@ -178,39 +241,38 @@ def section2Analyze(modCheck, modules):
     if len(modDisList):
         modDisable(modDisList)
 
+    print("\n### End of Section 2 ###")
 
-# 3. Principles, Permissions and Ownerships (Audit)
+
+'''
+Section 3: Principles, Permissions and Ownerships
+'''
 def section3Audit():
-    # Get Apache Environment Variables
-    envVarPath = '{}/envvars'.format(webSerDir)
-    while not os.path.isfile(envVarPath):
-        envVarPath = input('Enter path to environment variable file: ')
-    
-    envVars = [i.split('export ')[1].split('=') for i in os.popen('cat {} | grep export'.format(envVarPath)).read().split('\n') if i and i[0] != '#']
+    print("### Start of Section 3 ###\n")
 
-    varDict = {}
-    for var in envVars:
-        if len(var) == 2:
-            varDict[var[0]] = var[1]
+    docRoot = os.popen('grep -i DocumentRoot {}/sites-available/000-default.conf'.format(webSerDir)).read().split()[-1]
 
+    # 3.1
     # [User Exist, Group Exist]
     chkList = [False, False]
 
-    # ADD APACHE USER (MANUAL FIX)
+    # ADD APACHE USER (MANUAL FIX) - Done
     res = os.popen('grep -i ^User {}'.format(apacheConfFile)).read()
     if res:
         user = res.split('User ')[1].replace('\n', '')
         chkList[0] = True
     else:
-        print('No Apache User found')
+        print('No Apache user found')
+        print('Ensure there is a User directive present in the {} file\n'.format(apacheConfFile))
     
-    # ADD APACHE GROUP (MANUAL FIX)
+    # ADD APACHE GROUP (MANUAL FIX) -Done
     res = os.popen('grep -i ^Group {}'.format(apacheConfFile)).read()
     if res:
         group = res.split('Group ')[1].replace('\n', '')
         chkList[1] = True
     else:
         print('No Apache group found')
+        print('Ensure there is a Group directive present in the {} file\n'.format(apacheConfFile))
 
     if chkList[0]:
         if user.startswith('${'):
@@ -223,13 +285,20 @@ def section3Audit():
         ids = res.split()
         uid = int(ids[0][4:].split('(')[0])
 
-        # CREATE NEW USER (MANUAL FIX)
+        # REVERT TO DEFAULT/CREATE NEW USER (MANUAL FIX)
         if uid >= uidMin:
             print('Apache running as non-system account')
+            print('Fixing methods:')
+            print('1. Revert to default user account (www-data)')
+            print('2. useradd <USER_NAME> --r -g {} -d {} -s /sbin/nologin'.format(group, docRoot))
+            print()
 
         # REMOVE FROM SUDOER GROUP (MANUAL FIX)
         elif 'sudo' in ids[2]:
             print('Apache user has sudo privilege')
+            print('Fixing Methods:')
+            print('1. deluser {} sudo'.format(user))
+            print()
 
         else:
             # Ensure Apache User Account has Invalid Shell
@@ -271,7 +340,6 @@ def section3Audit():
         commandRun('chmod -R g-w {}'.format(webSerDir))
 
     # Ensure Core Dump Directory is Secured
-    docRoot = os.popen('grep -i DocumentRoot {}/sites-available/000-default.conf'.format(webSerDir)).read().split()[-1]
     res = os.popen('grep -n CoreDumpDirectory {}'.format(apacheConfFile)).read().split('\n')[:-1]
     
     # Get the line number of the CoreDumpDirectory directive
@@ -291,34 +359,50 @@ def section3Audit():
         print('Apache log directory not owned by root')
         commandRun('chown root {}'.format(logDir))
 
-    if chkList[1]:
-        if group.startswith('${'):
-            group = varDict[group[2:-1]]
-
-        res = os.popen('find {} -prune \! -group {}'.format(logDir, group))
-        if res:
-            print('Apache log directory not owned by {} group'.format(group))
-            commandRun('chgrp {} {}'.format(group, logDir))
-
-        # Ensure Group Write Access for Document Root Directories and Files is Properly Restricted
-        res = os.popen('find -L {} -group {} -perm /g=w -ls'.format(docRoot, group)).read()
-        
-        if res:
-            print('DocumentRoot directories/files found with group write access')
-            commandRun('find -L {} -group {} -perm /g=w -print | xargs chmod g-w'.format(docRoot, group))
-
     res = os.popen('find {} -prune -perm /o=rwx'.format(logDir)).read()
 
     if res:
         print('Apache log directory accessible by others')
         commandRun('chmod o-rwx {}'.format(logDir))
 
+    if chkList[1]:
+        if group.startswith('${'):
+            group = varDict[group[2:-1]]
+
+        # Check if group is a system group
+        res = os.popen('grep ^GID_MIN /etc/login.defs').read()
+        gidMin = int(res.split()[1])
+
+        res = os.popen('getent group {}'.format(group)).read()
+        gid = int(res.split(':')[2])
+
+        # REVERT TO DEFAULT/CREATE NEW GROUP (MANUAL FIX)
+        if gid >= gidMin:
+            print('Apache group ({}) is non-system'.format(group))
+            print('Fixing methods:')
+            print('1. Revert to default group (www-data)')
+            print('2. groupadd -r <GROUP_NAME>')
+            print()
+        else:
+            res = os.popen('find {} -prune \! -group {}'.format(logDir, group))
+            if res:
+                print('Apache log directory not owned by {} group'.format(group))
+                commandRun('chgrp {} {}'.format(group, logDir))
+
+            # Ensure Group Write Access for Document Root Directories and Files is Properly Restricted
+            res = os.popen('find -L {} -group {} -perm /g=w -ls'.format(docRoot, group)).read()
+            
+            if res:
+                print('DocumentRoot directories/files found with group write access')
+                commandRun('find -L {} -group {} -perm /g=w -print | xargs chmod g-w'.format(docRoot, group))
+
     # Ensure Lock File is Secured
     lockDir = varDict['APACHE_LOCK_DIR']
-
+    
     # CHANGE LOCK DIRECTORY (MANUAL FIX)
     if docRoot in lockDir:
-        print('Lock directory in document root')
+        print('Lock directory in document root: {}'.format(lockDir))
+        print('Move/Modify directory to one outside of {}\n'.format(docRoot))
 
     res = os.popen('find {} -prune \! -user root'.format(lockDir)).read()
 
@@ -336,7 +420,8 @@ def section3Audit():
 
     # MOVE DIRECTORY TO LOCAL HARD DRIVE (MANUAL FIX)
     if res == 'nfs':
-        print('ScoreBoardFile directory is on an NFS mounted filesystem')
+        print('Lock file directory is on an NFS mounted filesystem: {}'.format(lockDir))
+        print('Move/Modify directory to a locally mounted file system (E.g. /var/lock/apache2)')
         
     # Ensure PID File is Secured
     res = os.popen('grep "PidFile " {}'.format(apacheConfFile)).read()
@@ -349,7 +434,8 @@ def section3Audit():
 
     # CHANGE PID DIRECTORY (MANUAL FIX)
     if docRoot in pidDir:
-        print('PID directory in document root')
+        print('PID directory in document root: {}'.format(pidDir))
+        print('Move/Modify directory to one outside of {}'.format(docRoot))
 
     res = os.popen('find {} -prune \! -user root'.format(pidDir)).read()
 
@@ -372,7 +458,8 @@ def section3Audit():
 
             # CHANGE SCOREBOARD DIRECTORY (MANUAL FIX)
             if docRoot in scoreBoardDir:
-                print('ScoreBoardFile directory in document root')
+                print('ScoreBoardFile directory in document root: {}'.format(scoreBoardDir))
+                print('Move/Modify directory to one outside of {}'.format(docRoot))
 
             res = os.popen('find {} -prune \! -user root'.format(scoreBoardDir)).read()
 
@@ -390,18 +477,20 @@ def section3Audit():
 
             # MOVE DIRECTORY TO LOCAL HARD DRIVE (MANUAL FIX)
             if res == 'nfs':
-                print('ScoreBoardFile directory is on an NFS mounted filesystem')
+                print('ScoreBoardFile directory is on an NFS mounted filesystem: {}'.format(scoreBoardDir))
+                print('Move/Modify directory to a locally mounted file system')
+ 
+    # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
+    # Does not seem possible to do automatically, since we will require all the possible writable directories that the user will be having 
 
-    
-    # # KIV
-    # # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
-    # res = os.popen('find {} -prune \! -user {}'.format(docRoot, varDict['APACHE_RUN_USER'])).read()
+    print("\n### End of Section 3 ###")
 
-    # # GIVE FIX
-    # if res:
-    #     print('Document Root not owned by Run User')
-    
-    
+
+'''
+Section 4: Apache Access Control
+Looks for the respective directives based on the pattern given
+Runs the appropriate function to decide if any changes were made
+'''
 def handleDirective(pattern, content, confUpdate, isDir=False):
     res = re.finditer(pattern, content)
 
@@ -418,13 +507,17 @@ def handleDirective(pattern, content, confUpdate, isDir=False):
         elif dirField.split('\n')[0] in ['<Directory>', '<Directory />']:
             updatedField, changed = rootDirectory(dirField)
             if changed:
+                print('Original Directive:\n{}'.format(dirField))
+
+                print('\nUpdated Directive:\n{}\n'.format(updatedField))
                 confChanges.append((dirIndexes, updatedField))
 
         else:
             updatedField, changed = webContent(dirField, isDir)
             if changed:
-                print(dirField)
-                print(updatedField)
+                print('Original Directive:\n{}'.format(dirField))
+
+                print('\nUpdated Directive:\n{}\n'.format(updatedField))
                 confChanges.append((dirIndexes, updatedField))
 
     if len(confChanges):
@@ -434,7 +527,10 @@ def handleDirective(pattern, content, confUpdate, isDir=False):
     return content, confUpdate
 
 
-# Checks for the appropriate access control for the OS root directory
+'''
+Section 4: Apache Access Control
+Checks for the appropriate access control for the OS root directory
+'''
 def rootDirectory(dirField):
     dirSplit = dirField.split('\n')
     toRemove = []
@@ -482,7 +578,10 @@ def rootDirectory(dirField):
     return updatedField, changed
     
 
-# Checks for the appropriate access control for directives
+'''
+Section 4: Apache Access Control
+Checks for the appropriate access control for directives
+'''
 def webContent(dirField, isDir=False):
     dirSplit = dirField.split('\n')
     print('Current checking directives for {}'.format(dirSplit[0]))
@@ -539,7 +638,10 @@ def webContent(dirField, isDir=False):
     return updatedField, changed
 
 
-# Updates the configuration file content
+'''
+Section 4: Apache Access Control
+Updates the configuration file content
+'''
 def updateConf(confChanges, confContent):
     newContent = []
     for change in reversed(confChanges):
@@ -557,7 +659,10 @@ def updateConf(confChanges, confContent):
     return ''.join(newContent)
 
 
-# Removes any instances of the AllowOverrideList directive from the configuration content
+'''
+Section 4: Apache Access Control
+Removes any instances of the AllowOverrideList directive from the configuration content
+'''
 def rmAllowOverrideList(confContent):
     contentSplit = confContent.split('\n')
     toRemove = []
@@ -576,13 +681,15 @@ def rmAllowOverrideList(confContent):
     return '\n'.join(contentSplit)
 
 
-# 4. Apache Access Control (Audit)
+'''
+Section 4: Apache Access Control
+'''
 def section4Audit():
     # Getting List of Conf Files for Web Content to Analyze
     #   - apache2.conf
     #   - sites-enabled
     #       - *.conf
-
+    print("### Start of Section 4 ###\n")
     confPaths = ['SERVER_CONFIG_FILE']
     confPaths.extend(os.popen('ls {}/sites-enabled/*.conf'.format(webSerDir)).read().split('\n')[:-1])
     
@@ -635,15 +742,21 @@ def section4Audit():
             if confFile == 'SERVER_CONFIG_FILE':
                 apacheConfContent = content
             else:
-                confName = confFile.split(r'/')[-1]
-
-                if runFix:
-                    with open('{}.new'.format(confName), 'w') as f:
+                if remedy:
+                    with open('{}.new'.format(confFile), 'w') as f:
                         f.write(content)
+                    
+                    print('\nAll changes are saved to {}.new. To reflect all changes, manually rename this file to {}.'.format(confFile, confFile))
+
+    print("\n### End of Section 4 ###")
 
 
-# 10. Request Limits
+'''
+Section 10: Request Limits
+'''
 def section10():
+    print("### Start of Section 10 ###\n")
+
     global apacheConfContent
     search_reg_exp = [r"^512$", r"^100$", r"^1024$", r"^102400$"]
     expected_values = ["512", "100", "1024", "102400"]
@@ -690,9 +803,405 @@ def section10():
         print(
             "\nAll changes are saved to " + apacheConfFile + ".new. To reflect all changes, manually rename this file to apache2.conf.")
 
+    print("\n### End of Section 10 ###")
+
+
+'''
+Section 11: Enable SELinux to Restrict Apache Processes
+'''
+def section11():
+    print("### Start of Section 11 ###\n")
+
+    selinux_permissive = False
+    selinux_enforcing = False
+    selinux_installed = False
+
+    ## 11.1 Ensure SELinux Is Enabled in Enforcing Mode.
+    ret = subprocess.run("getenforce", capture_output=True, shell=True)
+    getenforce_output = ret.stdout.decode()
+
+    if "Disabled" in getenforce_output:
+        selinux_installed = True
+
+        if not remedy:
+            print("SELinux is disabled. Please enable it with \'selinux-activate\' and a reboot.")
+        else:  # Activate SELinux if installed but disabled.
+            subprocess.run("selinux-activate", shell=True) # Activate SELinux (set to permissive), subject to a reboot.
+            print("After reboot, run \'setenforce 1' to temporarily set SELinux to enforcing. Note that this can cause stability issues in Ubuntu.")
+            print("Be warned that running \'selinux-config-enforcing\' will cause Ubuntu to hang on the next reboot\n")  
+
+    elif "Permissive" in getenforce_output:
+        selinux_installed = True
+        selinux_permissive = True
+        if not remedy:
+            print("SELinux is enabled in Permissive mode. Enforce it with \'setenforce 1\', but at your own risk, because it can cause stability issues in Ubuntu.")
+            
+
+    elif "Enforcing" in getenforce_output:
+        selinux_installed = True
+        selinux_enforcing = True
+        print("SELinux is enabled in Enforcing mode. No action is required.")
+ 
+         
+    # Enable SELinux if disabled or install SELinux if not installed, but only if AppArmor is not running.
+    if remedy:
+        apparmor_status = os.system("systemctl is-active --quiet apparmor >/dev/null 2>&1")
+
+        # If AppArmor is running, don't install SELinux.
+        if apparmor_status == 0: 
+            print("AppArmor is running. Skipping Section 11...")
+        
+
+
+        # Install and activate SELinux if not installed.
+        if not selinux_installed:
+            install_selinux = ""
+            while not install_selinux == "y" and not install_selinux == "n":
+                install_selinux = input("Install SELinux? (Y/N) ").rstrip().lower()
+                if install_selinux == "y":
+                    print("Installing SELinux...\n")
+                    subprocess.run("apt-get install selinux-basics selinux-utils policycoreutils -y >/dev/null 2>&1", shell=True)
+                    subprocess.run("selinux-activate", shell=True) # Activate SELinux (set to permissive), subject to a reboot.
+                    selinux_installed = True
+                    print("After reboot, run \'setenforce 1' to temporarily set SELinux to enforcing. Note that this can cause stability issues in Ubuntu.")
+                    print("Be warned that running \'selinux-config-enforcing\' will cause Ubuntu to hang on the next reboot\n")
+
+                elif install_selinux == "n" :
+                    print("SELinux will not be installed.\n")
+                    
+                else:
+                    continue
+        
+        # Prompts user to set SELinux to enforcing if mode is permissive, at least until the next reboot.
+        if selinux_permissive:
+            enforce_selinux = ""
+            while not enforce_selinux == "y" and not enforce_selinux == "n":
+                enforce_selinux = input("Set SELinux to enforcing? Note that this can cause stability issues in Ubuntu.(Y/N) ").rstrip().lower()
+                if enforce_selinux == "y":
+                    subprocess.run("setenforce 1", shell=True)
+                    print("SELinux set to enforcing.")
+                    selinux_enforcing = True
+
+                elif enforce_selinux == "n":
+                    print("SELinux will not be set to enforcing.\n")
+                    
+                else:
+                    continue
+
+
+    # If SELinux is not installed, exit Section 11 since the rest of the section will involve SELinux.
+    if not selinux_installed:
+        print("SELinux is not installed. If you wish to install SELinux, ensure that AppArmor is not installed and run this command: \'apt-get install selinux-basics selinux-utils policycoreutils -y\'.")
+        print("However, it is recommended to install AppArmor instead of SELinux, because the latter can cause stability issues in Ubuntu.")
+        print("\n### End of Section 11 ###")
+        return
+
+    if selinux_enforcing or selinux_permissive:
+        ## 11.2 Ensure Apache Processes Run in the httpd_t Confined Context 
+        ret = subprocess.run("ps -eZ | grep httpd_t", capture_output=True, shell=True)
+        ps_httpd_t_output = ret.stdout.decode()
+        if "httpd_t" and "apache2" in ps_httpd_t_output:
+            print("Apache is running in the httpd_t confined context. No action is required.")
+        else:
+            print("Apache2 not running in httpd_t confined context. Refer to CIS Benchmark 11.2 for manual remidiation.")
+
+            if remedy:
+                subprocess.run("chcon -t initrc_exec_t /usr/sbin/apachectl", shell=True)
+                subprocess.run("chcon -t httpd_exec_t /usr/sbin/apache2 /usr/sbin/apache2.*", shell=True)
+                subprocess.run("semanage fcontext -f f -a -t initrc_exec_t /usr/sbin/apachectl", shell=True)
+                subprocess.run("semanage fcontext -f f -a -t httpd_exec_t /usr/sbin/apache2", shell=True)
+                subprocess.run("restorecon -v /usr/sbin/apache2 /usr/sbin/apachectl", shell=True) 
+
+        ## 11.3 Ensure the httpd_t Type is Not in Permissive Mode
+        ret = subprocess.run("semodule -l | grep permissive_httpd_t", capture_output=True, shell=True)
+        httpd_t_type_output = ret.stdout.decode()
+        if "permissive" in httpd_t_type_output:
+            print("httpd_t Type is in Permissive Mode. Please disable it.")
+            if remedy:
+                subprocess.run("semanage permissive -d httpd_t", shell=True)
+        else:
+            print("httpd_Type is not in Permissive Mode. No action is required.")
+
+        ## 11.4 Ensure Only the Necessary SELinux Booleans are Enabled
+        ret = subprocess.run("getsebool -a | grep httpd_ | grep '> on'", capture_output=True, shell=True)
+        httpd_booleans = ret.stdout.decode()
+
+        # If there are enabled SELinux httpd booleans present, print them, and remediate them if necessary.
+        if len(httpd_booleans)!=0:
+            print("\nList of enabled SELinux httpd booleans:\n")
+            
+            for httpd_boolean in httpd_booleans.split('\n'):
+                if len(httpd_boolean) !=0:
+                    print("--> " + httpd_boolean.replace(" --> on", ""))
+
+            print("\nDisable httpd booleans which are unnecessary with the command \'setsebool -P <httpd boolean>\'.")
+            if remedy:
+                httpd_booleans_to_disable = input("Enter SELinux httpd booleans to disable (separated by comma): ")
+
+                httpd_booleans_to_disable_list = httpd_booleans_to_disable.split(",")
+                
+                print("SELinux httpd booleans to disable: \n")
+                for httpd_boolean in httpd_booleans_to_disable_list:
+                    httpd_boolean = httpd_boolean.strip().replace("\n", "")
+                    ret = subprocess.run("setsebool -P " + httpd_boolean + " off", capture_output=True, shell=True)
+                    setsebool_output = ret.stdout.decode()
+                    print(setsebool_output)
+                    if "not defined" in setsebool_output: # If httpd_boolean entered is invalid.
+                        print("Invalid boolean " + httpd_boolean + " identified.")
+                        print("Enter the command \'setsebool -P <httpd boolean>\' manually to try again.")
+                    else: # If httpd_boolean is valid, disable it.
+                        print(httpd_boolean + " disabled.")
+
+        # If there are no SELinux httpd booleans, do nothing.
+        else: 
+            print("No SELinux httpd booleans found. No action is required.")
+
+    print("\n### End of Section 11 ###")
+
+
+'''
+Section 12: Enable AppArmor to Restrict Apache Processes. 
+'''
+def section12():
+    print("### Start of Section 12 ###\n")
+
+    apparmor_apache2_config_file = "/etc/apparmor.d/usr.sbin.apache2"
+    selinux_installed = False
+    apparmor_installed = False
+
+    ## 12.1  Ensure the AppArmor Framework Is Enabled
+    ret = subprocess.run("getenforce", capture_output=True, shell=True)
+    getenforce_error_code = ret.returncode
+
+    if getenforce_error_code==0:
+        print("SELinux is installed. Skipping Section 12...")
+        selinux_installed = True
+
+    # Proceed only if SELinux is disabled or not installed.
+    if not selinux_installed:
+        ret = subprocess.run("aa-status --enabled && echo Enabled", capture_output=True, shell=True)
+        apparmor_status_output = ret.stdout.decode()
+        # If AppArmor is not enabled/not installed and remedy option is enabled, prompt user to install AppArmor.
+        if not "Enabled" in apparmor_status_output and remedy:
+            print("SELinux is not installed. Proceeding with AppArmor installation...")
+            install_apparmor = ""
+            while not install_apparmor == "y" and not install_apparmor == "n":
+                install_apparmor = input("AppArmor not installed. Install it? (Y/N) ").rstrip().lower()
+                if install_apparmor == "y":
+                    print("Installing AppArmor...")
+                    subprocess.run("apt-get update >/dev/null 2>&1 && apt-get install apparmor libapache2-mod-apparmor apparmor-utils snapd -y >/dev/null 2>&1", shell=True)
+                    subprocess.run("/etc/init.d/apparmor start", shell=True) 
+                    apparmor_installed = True
+
+                elif install_apparmor == "n":
+                    print("AppArmor will not be installed.\n")
+                else:
+                    continue
+
+        # If AppArmor is not enabled/not installed and remedy option is not enabled, tell user to install AppArmor.
+        elif not "Enabled" in apparmor_status_output and not remedy:
+            print("AppArmor is not installed. If you wish to install AppArmor, ensure that SELinux is not installed, and run this command: \'apt-get install apparmor libapache2-mod-apparmor apparmor-utils snapd -y\'.")
+            print("\n### End of Section 12 ###")
+            return
+
+        # If AppArmor is already enabled/installed, run checks on the Apache AppArmor Profile config file.
+        else:
+            apparmor_installed = True
+            print("Checking if AppArmor is running....")
+            apparmor_status = os.system("systemctl is-active --quiet apparmor")
+
+            if apparmor_status!=0:
+                print("AppArmor not started.")
+                subprocess.run("/etc/init.d/apparmor start", shell=True)
+            else:
+                print("AppArmor is already running.")
+                apparmor_apache2_config_file_download_link = "\"https://raw.githubusercontent.com/gentoo/gentoo-apparmor-profiles/master/usr.sbin.apache2\""    
+                if not os.path.exists(apparmor_apache2_config_file): # If AppArmor Apache2 config file is not found, install AppArmor dependencies
+                    download_apparmor_apache2_config_file = ""
+                    while not download_apparmor_apache2_config_file == "y" and not download_apparmor_apache2_config_file == "n":
+                        download_apparmor_apache2_config_file = input("AppArmor config file not found (required for audit). Download it? (Y/N) ").rstrip().lower()
+                        if download_apparmor_apache2_config_file == "y":
+                            print("Downloading " + apparmor_apache2_config_file + "...")
+                            subprocess.run("wget " + apparmor_apache2_config_file_download_link + " -O \"/etc/apparmor.d/usr.sbin.apache2\" >/dev/null 2>&1", shell=True)
+                            subprocess.run("/etc/init.d/apparmor reload", shell=True)
+
+                        elif download_apparmor_apache2_config_file == "n":
+                            print("Default AppArmor Apache configuration file downloaded.\n")
+                        else:
+                            continue
+
+        # Proceed only if AppArmor is enabled/installed.
+        if apparmor_installed:
+            ## 12.2 Ensure the Apache AppArmor Profile Is Configured Properly.
+            capablities = ["capability dac_override", "capability dac_read_search", "capability net_bind_service", "capability setgid", "capability setuid", "capability kill", "capability sys_tty_config"]
+            capablities_found = []
+            
+            permissions = ["/usr/sbin/apache2 mr", "/etc/gai.conf r", "/etc/group r", "/etc/apache2/** r", "/var/www/html/** r", "/run/apache2/** rw", "/run/lock/apache2/** rw", "/var/log/apache2/** rw", "/etc/mime.types r"]
+            permissions_found = []
+            
+            forbidden_lines = []
+
+            try:
+                with open(apparmor_apache2_config_file, "r") as f:
+                    apparmor_apache2_config = f.readlines()
+                    for line in apparmor_apache2_config:
+                        line = line.lstrip()
+                        if "#" in line:
+                            continue
+                        elif re.match(r"^/\*\*", line):
+                            forbidden_lines.append(line.replace(",","").rstrip())
+                            permissions_found.append(line.replace(",","").rstrip())  
+
+                        elif re.match(r"^/ r[wx]", line):
+                            forbidden_lines.append(line.replace(",","").rstrip())
+                            permissions_found.append(line.replace(",","").rstrip())
+                        
+                        elif "capability" in line:
+                            capablities_found.append(line.replace(",","").rstrip())
+
+                        elif re.match(r"^/.*[mrwlkix]$", line.replace(',',"").rstrip()): # Find line containing permissions. First char must be "/" and last char must be either "m", "w", "r", or "x".
+                            permissions_found.append(line.replace(",",""))  
+            except FileNotFoundError:
+                print(apparmor_apache2_config_file + " not found!")
+
+            print("\nCapabilities found:\n") 
+            if len(capablities_found) == 0:
+                print("None\n")
+            for capability_found in list(set(capablities_found)):
+                print("--> " + capability_found)
+
+            print("\nRecommended Capabilities:\n") 
+            for capability in capablities:
+                print("--> " + capability) 
+
+            print("\nPermissions found:\n") 
+            
+            if len(permissions_found) == 0:
+                print("None\n")
+            for permission_found in list(set(permissions_found)):
+                print("--> " + permission_found)       
+
+            print("\nRecommended Permissions:\n") 
+            for permission in permissions:
+                print("--> " + permission) 
+
+            print("\nForbidden Lines (remove them):\n")  
+            for forbidden_line in list(set(forbidden_lines)):
+                print("--> " + forbidden_line) 
+            
+            
+            ## Section 12.3 Ensure Apache AppArmor Profile is in Enforce Mode.
+
+            print("\nChecking if Apache AppArmor Profile is in Enforce Mode...")
+            
+            check_if_apparmor_enforced = "aa-unconfined --paranoid | grep apache2"
+            ret = subprocess.run(check_if_apparmor_enforced, capture_output=True, shell=True)
+            check_if_apparmor_enforced_output = ret.stdout.decode()
+
+            if "confined by" and "(enforce)" in check_if_apparmor_enforced_output:
+                print("Apache AppArmor Profile is in Enforce Mode. No action is required.")
+            else:
+                print("Apache AppArmor Profile is not in Enforce Mode. Enforce it by running the command \'aa-enforce apache\'.")
+
+            # If remedy option is enabled, implement the recommended state for both Section 12.2 and Section 12.3.
+            if remedy:
+                subprocess.run("service apache2 stop >/dev/null 2>&1", shell=True)
+                subprocess.run("aa-autodep apache2", shell=True)
+                subprocess.run("aa-complain apache2", shell=True)
+                subprocess.run("service apache2 start >/dev/null 2>&1", shell=True)
+                subprocess.run("aa-logprof", shell=True)
+                subprocess.run("apparmor_parser -r /etc/apparmor.d/usr.sbin.apache2", shell=True)
+                subprocess.run("aa-enforce apache2", shell=True)
+                subprocess.run("/etc/init.d/apparmor reload", shell=True)
+    
+    print("\n### End of Section 12 ###")
+
+
+'''
+Pre-requisites checks:
+
+1. Check if root.
+2. Check if Apache is installed.
+3. Check if Apache is running.
+
+'''
+def prereq_check():
+    # id -u checks for user id. 0 means root, non-zero means normal user.
+    command = "id -u"
+    ret = subprocess.run(command, capture_output=True, shell=True)
+    user_id = int(ret.stdout.decode())
+
+
+    if user_id != 0:
+        print("Root required. Please run as root!")
+        exit(-1)
+    else:
+        install_apache = ""
+
+        ret = subprocess.run("apachectl", capture_output=True, shell=True)
+        apachectl_error_code = ret.returncode
+
+        # If Apache is not installed.
+        if apachectl_error_code!=1:
+            while not install_apache == "y" and not install_apache == "n":
+                install_apache = input("Apache is not installed. Install Apache? (Y/N) ").rstrip().lower()
+                if install_apache == "y":
+                    print("Installing Apache...\n")
+                    subprocess.run("apt-get install apache2 -y >/dev/null 2>&1", shell=True)
+                    
+                elif install_apache == "n":
+                    print("Apache will not be installed.")
+                    print("Script Terminated.")
+                    exit(-1)
+                    
+                else:
+                    continue
+
+        # If Apache is installed, check if Apache is running.
+        else:
+            print("Apache is installed.")
+            run_apache = ""
+            
+            ret = subprocess.run("systemctl is-active --quiet apache2 >/dev/null 2>&1", capture_output=True, shell=True)
+            apache2_error_code = ret.returncode
+            
+            # If Apache is not running, prompt user to run Apache.
+            if apache2_error_code!=0:
+                while not run_apache == "y" and not run_apache == "n":
+                    run_apache = input("Apache is not running. Start Apache? (Y/N) ").rstrip().lower()
+                    if run_apache == "y":
+                        print("Starting Apache...\n")
+                        subprocess.run("service apache2 start", shell=True)
+                        
+                    elif run_apache == "n":
+                        print("Apache will not be started.")
+                        print("Script Terminated.")
+                        exit(-1)
+                        
+                    else:
+                        continue
+            else:
+                print("Apache is running.\n")
+
 
 if __name__ == '__main__':
-    runFix = False
+    parser = argparse.ArgumentParser(description='Web Baseline Analyzer')
+    group = parser.add_mutually_exclusive_group()
+    parser.add_argument('-r', action='store_true', help='Run script with this option to automatically perform remedies')
+    group.add_argument('-e', action='extend', nargs='+', type=int, metavar=(1, 2), help='Enter list of sections to perform audit (E.g. 3 5 6)')
+    group.add_argument('-d', action='extend', nargs='+', type=int, metavar=(1, 2), help='Enter list of sections to skip audit (E.g. 3 5 6)')
+
+    args = parser.parse_args()
+    remedy = args.r
+
+    sectionsAudit = {1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12}
+
+    if args.e:
+        sectionsAudit = args.e
+    elif args.d:
+        sectionsAudit -= set(args.d)
+
+    prereq_check()
 
     # Goal: Determine web server configuration dir
     webSerDir = r'/etc/apache2'
@@ -706,25 +1215,58 @@ if __name__ == '__main__':
     with open(apacheConfFile) as f:
         apacheConfContent = f.read()
 
-    res = os.popen('id -u').read().split('\n')[0]
-    if res != '0':
-        print('Run script with root permissions')
+    # Get Apache Environment Variables
+    envVarPath = '{}/envvars'.format(webSerDir)
+    while not os.path.isfile(envVarPath):
+        envVarPath = input('Enter path to environment variable file: ')
+    
+    envVars = [i.split('export ')[1].split('=') for i in os.popen('cat {} | grep export'.format(envVarPath)).read().split('\n') if i and i[0] != '#']
+
+    varDict = {}
+    for var in envVars:
+        if len(var) == 2:
+            varDict[var[0]] = var[1]
+
+
+    for section in list(sectionsAudit):
+        if section == 1:
+            section1()
+        elif section == 2:
+            modCheck, modules = section2Audit()
+            section2Analyze(modCheck, modules)
+        elif section == 3:
+            section3Audit()
+        elif section == 4:
+            section4Audit()
+        elif section == 5:
+            print("### Start of Section 5 ###\n")
+            section_5.section_5_methods()
+            print("\n### End of Section 5 ###")
+        elif section == 6:
+            # section6Audit()
+            apacheConfContent = section6.section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
+        elif section == 7:
+            continue
+        elif section == 8:
+            continue
+        elif section == 9:
+            continue
+        elif section == 10:
+            # section10()
+            apacheConfContent = section1012.section10(apacheConfContent)
+        elif section == 11:
+            # section11()
+            section1012.section11(remedy)
+        elif section == 12:
+            # section12()
+            section1012.section12(remedy)
+
+    
+    # Reload apache2 server if remedy were automatically ran
+    if remedy:
+        with open(apacheConfFile + '.new', 'w') as f:
+            f.write(apacheConfContent)
+        print("\nAll changes are saved to " + apacheConfFile + ".new. To reflect all changes, manually rename this file to apache2.conf.")
+        commandRun('service apache2 reload')
     else:
-        print('Section 2: Minimize Apache Modules')
-        modCheck, modules = section2Audit()
-        section2Analyze(modCheck, modules)
-
-        print('\nSection 3: Principls, Permissions and Ownerships')
-        section3Audit()
-
-        print('\nSection 4: Apache Access Control')
-        section4Audit()
-
-
-        print('\nSection 10: Request Limits')
-        section10()
-
-        if runFix:
-            commandRun('service apache2 reload')
-        else:
-            print('Remember to reload apache after applying the changes')
+        print('Remember to reload Apache after applying the changes')
