@@ -129,6 +129,7 @@ def section73():
                     original_cert = ""
                     for cert in cert_read.readlines():
                         if cert.find("BEGIN PRIVATE KEY") != -1:
+                            print("Private key found in " + i)
                             overwrite = 1
                         if overwrite == 1:
                             temp_string += cert
@@ -141,7 +142,6 @@ def section73():
                     cert_read = open(i, "w")
                     cert_read.write(original_cert)
                     # Make new cert at a safe location
-                    print(i.split("/")[-1].split(".")[0])
                     priv_key = open("/etc/ssl/private/" + i.split("/")[-1].split(".")[0] + ".key", "w+")
                     priv_key.write(temp_string)
                 except FileNotFoundError:
@@ -258,14 +258,14 @@ def section74():
         sslprotocol_checked = 0
         for lines in range(len(sites)):
             if site_open_lines[lines].find("SSLProtocol") != -1:
-                site_open_lines[lines] = "\t\tSSLProtocol TLSv1.2"
+                site_open_lines[lines] = "\t\tSSLProtocol TLSv1.2 TLSV1.3"
                 sslprotocol_checked = 1
                 break
         if sslprotocol_checked == 0:
             for lines in range(len(sites)):
                 if site_open_lines[lines].find(":443") != -1:
                     site_open_lines.insert(lines + 2, "\t\tSSLProtocol TLSv1.2 TLSV1.3\n")
-        
+        print("SSLProtocol set to TLSV1.2 and 1.3!")
         if remedy or updateExist:
             with open(sitePath, 'w') as f:
                 f.write(''.join(site_open_lines))
@@ -313,7 +313,8 @@ def section75():
             pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
             with open('conf{}'.format(sitePath), 'w') as f:
                 f.write(''.join(site_open_lines))
-
+    print("Cipher Suites set to ONLY EECDH and DHE")
+    print("Configured to respect the set cipher suites(SSLHonorCipherOrder)")
 def section76():
     sites_available = subprocess.run("ls -p /etc/apache2/sites-available| grep -v /", shell=True, capture_output=True, text=True)
     sites_available_list = sites_available.stdout.split("\n")
@@ -345,7 +346,7 @@ def section76():
             pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
             with open('conf{}'.format(sitePath), 'w') as f:
                 f.write(''.join(site_open_lines))
-
+    print("SSL Renegotiation disabled!")
 def section77():
     sites_available = subprocess.run("ls -p /etc/apache2/sites-available| grep -v /", shell=True, capture_output=True, text=True)
     sites_available_list = sites_available.stdout.split("\n")
@@ -371,7 +372,7 @@ def section77():
             pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
             with open('conf{}'.format(sitePath), 'w') as f:
                 f.write(''.join(site_open_lines))
-
+    print("SSL Compression disabled!")
 def section79():
     all_configs = subprocess.run("find /etc/apache2/ -name '*.conf'", shell=True, capture_output=True, text=True)
     all_configs = all_configs.stdout.split("\n")
@@ -412,7 +413,6 @@ def section79():
             continue
         else:
             final_list.append(vhost[1])
-    print(final_list)
     #attempt request with http://<vhost/IP>/
     print("The following URLs/IPs are still serving non HTTP content! This makes the web server non compliant with"
           " CIS 7.9")
@@ -478,7 +478,7 @@ def section711():
             pathlib.Path('conf{}'.format(sitePath.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
             with open('conf{}'.format(sitePath), 'w') as f:
                 f.write(''.join(site_open_lines))
-
+    print("OCSP Stapling enabled on all configs!")
 def section712():
     sites_available = subprocess.run("ls -p /etc/apache2/sites-available| grep -v /", shell=True, capture_output=True, text=True)
     sites_available_list = sites_available.stdout.split("\n")
@@ -502,8 +502,6 @@ def section712():
             for lines in range(len(sites)):
                 if site_open_lines[lines].find(":443") != -1:
                     site_open_lines.insert(lines + 2, "\t\tHeader always set Strict-Transport-Security \"max-age=600\"\n")
-        print("".join(site_open_lines))
-        print("==============")
         if remedy or updateExist:
             with open(sitePath, 'w') as f:
                 f.write(''.join(site_open_lines))
@@ -512,7 +510,7 @@ def section712():
             with open('conf{}'.format(sitePath), 'w') as f:
                 f.write(''.join(site_open_lines))
 
-
+    print("HTTP Strict Transport Security (HSTS) enabled on all configurations")
 def section81(apacheConfFile):
     updateExist = False
     if not remedy:
@@ -528,8 +526,8 @@ def section81(apacheConfFile):
             strict_transport = 1
     if strict_transport == 0:
         site_open_lines.append("ServerTokens Prod\n")
-    print("".join(site_open_lines))
-    print("==============")
+    #print("".join(site_open_lines))
+    #print("==============")
 
     if remedy or updateExist:
         with open('{}'.format(apacheConfFile), 'w') as f:
@@ -538,7 +536,7 @@ def section81(apacheConfFile):
         pathlib.Path('conf{}'.format(apacheConfFile.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
         with open('conf{}'.format(apacheConfFile), 'w') as f:
             f.write(''.join(site_open_lines))
-
+    print("ServerTokens set to Prod!")
 
 def section82(apacheConfFile):
     updateExist = False
@@ -565,7 +563,7 @@ def section82(apacheConfFile):
         pathlib.Path('conf{}'.format(apacheConfFile.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
         with open('conf{}'.format(apacheConfFile), 'w') as f:
             f.write(''.join(site_open_lines))
-
+    print("ServerSignature set to off!")
 
 def section83():
     all_configs = subprocess.run("find /etc/apache2/ -name '*.conf'", shell=True, capture_output=True, text=True)
@@ -582,8 +580,8 @@ def section83():
         for lines in range(len(file)):
             if file[lines].find("Alias /icons/") != -1:
                 file[lines] = "\t#" + file[lines].strip("\t")
-        print("".join(file))
-        print("==============")
+        #print("".join(file))
+        #print("==============")
 
         if remedy or updateExist:
             with open('{}'.format(configs), 'w') as f:
@@ -592,7 +590,7 @@ def section83():
             pathlib.Path('conf{}'.format(configs.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
             with open('conf{}'.format(configs), 'w') as f:
                 f.write(''.join(file))
-
+    print("/icons/ alias has been disabled!")
 
 def section84():
     all_configs = subprocess.run("find /etc/apache2/ -name '*.conf'", shell=True, capture_output=True, text=True)
@@ -611,8 +609,8 @@ def section84():
                 break
             if file[lines].find("FileETag") != -1:
                 del file[lines]
-        print("".join(file))
-        print("==============")
+        #print("".join(file))
+        #print("==============")
 
         if remedy or updateExist:
             with open('{}'.format(configs), 'w') as f:
@@ -621,7 +619,7 @@ def section84():
             pathlib.Path('conf{}'.format(configs.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
             with open('conf{}'.format(configs), 'w') as f:
                 f.write(''.join(file))
-
+    print("ACTIVE FileETag directives have been deleted from all .confs")
 
 def fullSect7Audit(rem):
     global remedy
@@ -650,3 +648,4 @@ def fullSect8Audit(apacheConfFile, rem):
     section82(apacheConfFile) #Check for ServerSignature Off
     section83() #Comment out Alias icons/ "/var/www/icons/"
     section84() #Remove all instances of FileETag
+
