@@ -1,5 +1,5 @@
 import os
-import re
+import pathlib
 import subprocess
 import section24, section_5, section6, section78, section1012
 import argparse
@@ -186,7 +186,7 @@ if __name__ == '__main__':
             section_5.section_5_methods()
             print("\n### End of Section 5 ###")
         elif section == 6:
-            apacheConfContent = section6.section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
+            apacheConfContent = section6.section6Audit(webSerDir, apacheConfFile, varDict, remedy)
         elif section == 7:
             section78.fullSect7Audit()
         elif section == 8:

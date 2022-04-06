@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import subprocess
+import pathlib
 
 
 '''
@@ -41,6 +42,7 @@ def checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatSt
     res = re.finditer(pattern, content)
 
     confChanges = []
+    change = False
     fac = errorLogFaci.split(':')[1]
     logFile = errorLogFile.split()[1]
 
@@ -118,17 +120,19 @@ def checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatSt
     if len(confChanges):
         content = updateConf(confChanges, content)
         apacheConfContent = content
+        change = True
 
-    return apacheConfContent
+    return apacheConfContent, change
 
 
 '''
 Section 6: Operations - Logging, Monitoring and Maintenance
 '''
-def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy):
+def section6Audit(webSerDir, apacheConfFile, varDict, remedy):
     print("### Start of Section 6 ###\n")
-    apacheConfContentSplit = apacheConfContent.split('\n')
+    apacheConfContentSplit = open(apacheConfFile).read().split('\n')
     logLevel = False
+    contentChange = False
     errorLogFile = errorLogFaci = customLog = ''
     logFormatStrings = []
     customLogIndexes = []
@@ -199,6 +203,7 @@ def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
                     print('Updating LogLevel directive in {}'.format(apacheConfFile))
                     print('{}\n'.format(' '.join(values)))
                     apacheConfContentSplit[index] = ' '.join(values)
+                    contentChange = True
                     
         # Ensure log files is appropriate
         # Ensure syslog facility is appropriate
@@ -217,6 +222,7 @@ def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
                         print('Old: {}'.format(line))
                         print('New: ErrorLog syslog:local7')
                         apacheConfContentSplit[index] = errorLogFaci = 'ErrorLog syslog:local7'
+                        contentChange = True
 
                     print()
 
@@ -247,6 +253,7 @@ def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
                 elif line.split()[-1] == 'combined':
                     apacheConfContentSplit[index] = 'LogFormat "%h %l %u %t \"%r\" %>s %O \"%{{Referer}}i\" \"%{User-Agent}i\"" combined'
                     logFormatStrings.append(apacheConfContentSplit[index])
+                    contentChange = True
 
         elif 'CustomLog' in line:
             if line[0] not in ['#', '\t']:
@@ -265,10 +272,12 @@ def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
                     customLog = line
                 else:
                     apacheConfContentSplit.pop(customIndex)
+                    contentChange = True
             elif all (token in line for token in logFormatTokens):
                 customLog = line
             else:
                 apacheConfContentSplit.pop(customIndex)
+                contentChange = True
 
     apacheConfContent = '\n'.join(apacheConfContentSplit)
 
@@ -276,18 +285,21 @@ def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
         print('LogLevel directive not found. Adding directive...')
         print('LogLevel notice core:info')
         apacheConfContent += '\nLogLevel notice core:info'
+        contentChange = True
 
     if not errorLogFile:
         print('ErrorLog directive to log file not found. Adding directive...')
         print('ErrorLog ${APACHE_LOG_DIR}/error.log\n')
         errorLogFile = '\nErrorLog ${APACHE_LOG_DIR}//error.log'
         apacheConfContent += errorLogFile
+        contentChange = True
 
     if not errorLogFaci:
         print('ErrorLog directive to syslog facility not found. Adding directive...')
         print('ErrorLog syslog:local7\n')
         errorLogFaci = '\nErrorLog syslog:local7'
         apacheConfContent += errorLogFaci
+        contentChange = True
     
     if not customLog:
         print('CustomLog directive not found.')
@@ -317,17 +329,19 @@ def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
             customLog = 'CustomLog {} {}\n'.format(defaultLogFile, logFormatName)
 
         apacheConfContent += customLog
+        contentChange = True
         print(customLog)
 
     print('Updating Virtual Host Directives\n')
     pattern = '(\n<VirtualHost[.\s\S]+?<\/VirtualHost>)'
-    apacheConfContent = checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings, apacheConfContent)
+    apacheConfContent, contentChange = checkVirtualHost(pattern, errorLogFile, errorLogFaci, customLog, logFormatStrings, apacheConfContent)
 
     # 6.4 Ensure Log Storage and Rotation is Configured Correctly
     if logRotateType == '1':
         with open('/etc/logrotate.d/apache2') as f:
             content = f.readlines()
         linesToLookFor = ['missingok', 'notifempty', 'sharedscripts']
+        changed = False
         
         for line in content:
             conf = line.split()
@@ -338,8 +352,14 @@ def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
             for line in linesToLookFor:
                 content.insert(1, '    {}\n'.format(line))
 
-        with open('/etc/logrotate.d/apache2', 'w') as f:
-            f.write(''.join(content))
+        if changed:
+            if remedy:
+                with open('/etc/logrotate.d/apache2', 'w') as f:
+                    f.write(''.join(content))
+            else:
+                pathlib.Path('conf/etc/logrotate.d').mkdir(parents=True, exist_ok=True)
+                with open('conf/etc/logrotate.d/apache2', 'w') as f:
+                    f.write(''.join(content))
 
         with open('/etc/logrotate.conf') as f:
             content = f.readlines()
@@ -354,8 +374,13 @@ def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
                     changed = True
         
         if changed:
-            with open('/etc/logrotate.conf', 'w') as f:
-                f.write(''.join (content))
+            if remedy:
+                with open('/etc/logrotate.conf', 'w') as f:
+                    f.write(''.join (content))
+            else:
+                pathlib.Path('conf/etc').mkdir(parents=True, exist_ok=True)
+                with open('conf/etc/logrotate.conf', 'w') as f:
+                    f.write(''.join (content))
         else:
             print('Log Rotation configuration all-good\n')
 
@@ -589,5 +614,13 @@ def section6Audit(webSerDir, apacheConfFile, apacheConfContent, varDict, remedy)
             print('Status all-good')
 
     apacheConfContent = '\n'.join(apacheConfContentSplit)
+
+    if contentChange:
+        if remedy:
+            with open(apacheConfFile, 'w') as f:
+                f.write(apacheConfContent)
+        else:
+            pathlib.Path('conf{}'.format(apacheConfFile.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(apacheConfFile), 'w') as f:
+                f.write('\n'.join(apacheConfContent))
     print("\n### End of Section 6 ###")
-    return apacheConfContent
