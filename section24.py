@@ -1,5 +1,6 @@
 import os
 import re
+import pathlib
 
 '''
 Will either run or print the command given based on the remedy flag
@@ -197,8 +198,10 @@ def section2Analyze(modCheck, modules, remedy):
 '''
 Section 3: Principles, Permissions and Ownerships
 '''
-def section3Audit(apacheConfContent, apacheConfFile, varDict, webSerDir, remedy):
+def section3Audit(apacheConfFile, varDict, webSerDir, remedy):
     print("### Start of Section 3 ###\n")
+    apacheConfContent = open(apacheConfFile).read().split('\n')
+    confChange = False
 
     docRoot = os.popen('grep -i DocumentRoot {}/sites-available/000-default.conf'.format(webSerDir)).read().split()[-1]
 
@@ -298,6 +301,7 @@ def section3Audit(apacheConfContent, apacheConfFile, varDict, webSerDir, remedy)
         for line in res:
             lineNo = line.split(':', 1)[0]
             apacheConfContent.pop(int(lineNo) - 1)
+            confChange = True
         print('CoreDumpDirectory directive found in conf file')
 
     logDir = varDict['APACHE_LOG_DIR']
@@ -431,8 +435,16 @@ def section3Audit(apacheConfContent, apacheConfFile, varDict, webSerDir, remedy)
     # Ensure Access to Special Purpose Application Writable Directories is Properly Restricted
     # Does not seem possible to do automatically, since we will require all the possible writable directories that the user will be having 
 
+    if confChange:
+        if remedy:
+            with open(apacheConfFile, 'w') as f:
+                f.write('\n'.join(apacheConfContent))
+        else:
+            pathlib.Path('conf{}'.format(apacheConfFile.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+            with open('conf{}'.format(apacheConfFile), 'w') as f:
+                f.write('\n'.join(apacheConfContent))
+
     print("\n### End of Section 3 ###")
-    return apacheConfContent
 
 
 '''
@@ -633,22 +645,23 @@ def rmAllowOverrideList(confContent):
 '''
 Section 4: Apache Access Control
 '''
-def section4Audit(apacheConfContent, webSerDir, remedy):
+def section4Audit(apacheConfFile, webSerDir, remedy):
     # Getting List of Conf Files for Web Content to Analyze
     #   - apache2.conf
     #   - sites-enabled
     #       - *.conf
     print("### Start of Section 4 ###\n")
-    confPaths = ['SERVER_CONFIG_FILE']
+    confPaths = [apacheConfFile]
     confPaths.extend(os.popen('ls {}/sites-enabled/*.conf'.format(webSerDir)).read().split('\n')[:-1])
     
     for confFile in confPaths:
-        if confFile == 'SERVER_CONFIG_FILE':
-            content = apacheConfContent
-        else:
-            with open(confFile) as f:
-                content = f.read()
+        if not remedy:
+            if os.path.exists('conf{}'.format(confFile)):
+                confFile = 'conf{}'.format(confFile)
         
+        with open(confFile) as f:
+            content = f.read()
+
         confUpdate = False
 
         # Directory directive
@@ -687,14 +700,12 @@ def section4Audit(apacheConfContent, webSerDir, remedy):
         content = rmAllowOverrideList(content)
         
         if confUpdate:
-            if confFile == 'SERVER_CONFIG_FILE':
-                apacheConfContent = content
+            if remedy:
+                with open('{}'.format(confFile), 'w') as f:
+                    f.write(content)
             else:
-                if remedy:
-                    with open('{}.new'.format(confFile), 'w') as f:
-                        f.write(content)
-                    
-                    print('\nAll changes are saved to {}.new. To reflect all changes, manually rename this file to {}.'.format(confFile, confFile))
+                pathlib.Path('conf{}'.format(apacheConfFile.rsplit('/', 1)[0])).mkdir(parents=True, exist_ok=True)
+                with open('conf{}'.format(confFile), 'w') as f:
+                    f.write(content)
 
     print("\n### End of Section 4 ###")
-    return apacheConfContent

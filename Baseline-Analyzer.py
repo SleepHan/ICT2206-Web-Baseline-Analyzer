@@ -178,9 +178,9 @@ if __name__ == '__main__':
             modCheck, modules = section24.section2Audit()
             section24.section2Analyze(modCheck, modules, remedy)
         elif section == 3:
-            apacheConfContent = section24.section3Audit(apacheConfContent, apacheConfFile, varDict, webSerDir, remedy)
+            section24.section3Audit(apacheConfFile, varDict, webSerDir, remedy)
         elif section == 4:
-            apachConfContent = section24.section4Audit(apacheConfContent, webSerDir, remedy)
+            section24.section4Audit(apacheConfFile, webSerDir, remedy)
         elif section == 5:
             print("### Start of Section 5 ###\n")
             section_5.section_5_methods()
